@@ -13,7 +13,7 @@ impl RecordResult {
   pub fn success(&self) -> bool {
     self.result == "PASS"
   }
-  pub fn to_str(&self) -> e_utils::Result<String> {
+  pub fn to_str(&self) -> e_utils::AnyResult<String> {
     Ok(serde_json::to_string_pretty(self)?)
   }
 }
@@ -107,7 +107,7 @@ define_enum! {
 ///    "__abp": true
 ///  }
 ///   ```
-pub async fn insert_at_spi<'a>(cfg: &Cfg, token: &str, req: &InsertAtSpiReq<'a>) -> e_utils::Result<String> {
+pub async fn insert_at_spi<'a>(cfg: &Cfg, token: &str, req: &InsertAtSpiReq<'a>) -> e_utils::AnyResult<String> {
   let url = format!("{}/api/services/feed/FeedSnRecord/InsertAtSpi", cfg.prodUrl);
   let headers = HeaderMap::from_iter([header(&cfg.tokenName, token)?, header("Content-Type", "application/json")?]);
   let response = reqwest::Client::new()
@@ -122,11 +122,9 @@ pub async fn insert_at_spi<'a>(cfg: &Cfg, token: &str, req: &InsertAtSpiReq<'a>)
       "rail": &req.rail,
     }))
     .send()
-    .await
-    .map_err(|e| e.to_string())?
+    .await?
     .json::<Response<Option<RecordResult>>>()
-    .await
-    .map_err(|e| e.to_string())?;
+    .await?;
   match (response.success, response.result) {
     (true, Some(res)) if res.success() => Ok(res.result),
     (true, Some(res)) => Err(res.to_str()?.into()),

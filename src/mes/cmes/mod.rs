@@ -6,11 +6,8 @@ use reqwest::header::{HeaderName, HeaderValue};
 pub mod login;
 pub mod record;
 pub mod test_scan;
-pub fn header(k: &str, v: &str) -> e_utils::Result<(HeaderName, HeaderValue)> {
-  Ok((
-    HeaderName::from_str(k).map_err(|e| e.to_string())?,
-    HeaderValue::from_str(v).map_err(|e| e.to_string())?,
-  ))
+pub fn header(k: &str, v: &str) -> Result<(HeaderName, HeaderValue), Box<dyn std::error::Error>> {
+  Ok((HeaderName::from_str(k)?, HeaderValue::from_str(v)?))
 }
 mod r#type {
   use serde::{Deserialize, Serialize};
@@ -67,7 +64,7 @@ mod r#type {
     pub validation_errors: Option<Vec<String>>,
   }
   impl Error {
-    pub fn to_str(&self) -> e_utils::Result<String> {
+    pub fn to_str(&self) -> e_utils::AnyResult<String> {
       Ok(serde_json::to_string_pretty(self)?)
     }
   }
@@ -81,7 +78,7 @@ mod r#type {
     pub data: Value,
   }
   impl ErrorResultData {
-    pub fn to_str(&self) -> e_utils::Result<String> {
+    pub fn to_str(&self) -> e_utils::AnyResult<String> {
       Ok(serde_json::to_string_pretty(self)?)
     }
   }

@@ -38,17 +38,21 @@ use super::{Cfg, Response};
 ///     "__abp": true
 /// }
 /// ```
-pub async fn login(cfg: &Cfg) -> e_utils::Result<String> {
+pub async fn login(cfg: &Cfg) -> Result<String, Box<dyn std::error::Error>> {
   let url = format!("{}/api/Account/CreateToken", cfg.sysUrl);
+  // 账号不带@的用Base64加密，否则用MD5加密
+  let passwd = if cfg.userName.contains("@") {
+    format!("{:x}", md5::compute(cfg.passWord.as_bytes()))
+  } else {
+    e_utils::algorithm::base64::encode(&cfg.passWord)
+  };
   let response = reqwest::Client::new()
     .get(url)
-    .query(&[("Email", &cfg.userName), ("Pwd", &cfg.passWord)])
+    .query(&[("Email", &cfg.userName), ("Pwd", &passwd)])
     .send()
-    .await
-    .map_err(|e| e.to_string())?
+    .await?
     .json::<Response<Option<String>>>()
-    .await
-    .map_err(|e| e.to_string())?;
+    .await?;
 
   match (response.success, response.result, response.error) {
     (true, Some(token), _) => Ok(token),

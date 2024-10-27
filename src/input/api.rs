@@ -1,6 +1,5 @@
 use super::{Opts, OptsApi};
 use crate::mes::*;
-use e_utils::{Error, Result};
 
 /// # Input api 统一接口
 ///
@@ -17,9 +16,9 @@ use e_utils::{Error, Result};
 ///   Ok(())
 /// }
 /// ```
-pub async fn api(op: Opts) -> Result<String> {
+pub async fn api(op: Opts) -> e_utils::AnyResult<String> {
   match op.api {
-    OptsApi::SCM => Err(Error::String("待开发 SCM".to_string())),
+    OptsApi::SCM => Err("待开发 SCM".into()),
     OptsApi::CMES => {
       let cfg: cmes::Cfg = serde_json::from_str(&op.setting)?;
       match &*op.task {
@@ -34,36 +33,26 @@ pub async fn api(op: Opts) -> Result<String> {
           cmes::test_scan::get_info_by_sn(&cfg, &token, req).await
         }
         "TestScan:SaveProduceTestByAutoTest" => {
-          let req: cmes::test_scan::SaveProduceTestByAutoTestReq<'_> = op
-            .args
-            .get(0)
-            .and_then(|v| serde_json::from_str(v).ok())
-            .ok_or("请把条码输入在--args 条码")?;
+          let req: cmes::test_scan::SaveProduceTestByAutoTestReq<'_> =
+            op.args.get(0).and_then(|v| serde_json::from_str(v).ok()).ok_or("请把条码输入在--args 条码")?;
           let token = cmes::login::login(&cfg).await?;
           cmes::test_scan::save_produce_test_by_auto_test(&cfg, &token, &req).await
         }
         "TestScan:GetProduceDetails" => {
-          let req: cmes::test_scan::GetProduceDetailsReq<'_> = op
-            .args
-            .get(0)
-            .and_then(|v| serde_json::from_str(v).ok())
-            .ok_or("请把条码输入在--args 条码")?;
+          let req: cmes::test_scan::GetProduceDetailsReq<'_> =
+            op.args.get(0).and_then(|v| serde_json::from_str(v).ok()).ok_or("请把条码输入在--args 条码")?;
           let token = cmes::login::login(&cfg).await?;
           cmes::test_scan::get_produce_details(&cfg, &token, &req).await
         }
         "Record:InsertAtSpi" => {
-          let req: cmes::record::InsertAtSpiReq<'_> = op
-            .args
-            .get(0)
-            .and_then(|v| serde_json::from_str(v).ok())
-            .ok_or("请把条码输入在--args 条码")?;
+          let req: cmes::record::InsertAtSpiReq<'_> = op.args.get(0).and_then(|v| serde_json::from_str(v).ok()).ok_or("请把条码输入在--args 条码")?;
           let token = cmes::login::login(&cfg).await?;
           cmes::record::insert_at_spi(&cfg, &token, &req).await
         }
         "CreateToken" => cmes::login::login(&cfg).await,
-        _ => Err(Error::String("Unknow Task ".to_string())),
+        _ => Err("Unknow Task ".into()),
       }
     }
-    OptsApi::None => Err(Error::String("Api cannot eq None".to_string())),
+    OptsApi::None => Err("Api cannot eq None".into()),
   }
 }

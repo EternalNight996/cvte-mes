@@ -46,7 +46,7 @@ use super::{header, Cfg, ErrorResultData, Response};
 ///   "__abp": true
 /// }
 /// ```
-pub async fn check_lot_sn_code(cfg: &Cfg, token: &str, lot_sn_code: &str) -> e_utils::Result<String> {
+pub async fn check_lot_sn_code(cfg: &Cfg, token: &str, lot_sn_code: &str) -> e_utils::AnyResult<String> {
   let url = format!("{}/api/services/test/TestScan/CheckLotSnCode", cfg.prodUrl);
   let headers = header::HeaderMap::from_iter([header(&cfg.tokenName, token)?, header("Content-Type", "application/json")?]);
   let response = reqwest::Client::new()
@@ -57,11 +57,9 @@ pub async fn check_lot_sn_code(cfg: &Cfg, token: &str, lot_sn_code: &str) -> e_u
       "stationCode": &cfg.stationCode,
     }))
     .send()
-    .await
-    .map_err(|e| e.to_string())?
+    .await?
     .json::<Response<Option<ErrorResultData>>>()
-    .await
-    .map_err(|e| e.to_string())?;
+    .await?;
   match (response.success, response.result, response.error) {
     (true, Some(res), _) if res.is_success => Ok(res.msg),
     (true, Some(res), _) => Err(res.to_str()?.into()),
@@ -130,7 +128,7 @@ pub struct SaveProduceTestByAutoTestReq<'a> {
 ///   "unAuthorizedRequest": false,
 ///   "__abp": true
 /// }
-pub async fn save_produce_test_by_auto_test<'a>(cfg: &Cfg, token: &str, req: &SaveProduceTestByAutoTestReq<'a>) -> e_utils::Result<String> {
+pub async fn save_produce_test_by_auto_test<'a>(cfg: &Cfg, token: &str, req: &SaveProduceTestByAutoTestReq<'a>) -> e_utils::AnyResult<String> {
   let url = format!("{}/api/services/test/TestScan/SaveProduceTestByAutoTest", cfg.prodUrl);
   let headers = header::HeaderMap::from_iter([header(&cfg.tokenName, token)?, header("Content-Type", "application/json")?]);
   let response = reqwest::Client::new()
@@ -151,11 +149,9 @@ pub async fn save_produce_test_by_auto_test<'a>(cfg: &Cfg, token: &str, req: &Sa
       "testItem": req.testItem,
     }))
     .send()
-    .await
-    .map_err(|e| e.to_string())?
+    .await?
     .json::<Response<Option<ErrorResultData>>>()
-    .await
-    .map_err(|e| e.to_string())?;
+    .await?;
 
   match (response.success, response.result, response.error) {
     (true, Some(res), _) if res.is_success => Ok(res.msg),
@@ -285,7 +281,7 @@ pub struct GetInfoBySnRes {
 ///   "unAuthorizedRequest": false,
 ///   "__abp": true
 /// }
-pub async fn get_info_by_sn(cfg: &Cfg, token: &str, req: &str) -> e_utils::Result<String> {
+pub async fn get_info_by_sn(cfg: &Cfg, token: &str, req: &str) -> e_utils::AnyResult<String> {
   let url = format!("{}/api/services/test/TestScan/GetInfoBySn", cfg.prodUrl);
   let headers = header::HeaderMap::from_iter([header(&cfg.tokenName, token)?]);
   let response = reqwest::Client::new()
@@ -293,11 +289,9 @@ pub async fn get_info_by_sn(cfg: &Cfg, token: &str, req: &str) -> e_utils::Resul
     .headers(headers)
     .query(&[("code", req)])
     .send()
-    .await
-    .map_err(|e| e.to_string())?
+    .await?
     .json::<Response<Option<ErrorResultData>>>()
-    .await
-    .map_err(|e| e.to_string())?;
+    .await?;
 
   match (response.success, response.result, response.error) {
     (true, Some(res), _) if res.is_success => Ok(res.data.to_string()),
@@ -328,7 +322,7 @@ pub struct GetProduceDetailsReq<'a> {
 /// ```
 ///
 /// #校验异常
-pub async fn get_produce_details<'a>(cfg: &Cfg, token: &str, req: &GetProduceDetailsReq<'a>) -> e_utils::Result<String> {
+pub async fn get_produce_details<'a>(cfg: &Cfg, token: &str, req: &GetProduceDetailsReq<'a>) -> e_utils::AnyResult<String> {
   let url = format!("{}/api/services/test/TestScan/GetProduceDetails", cfg.prodUrl);
   let headers = header::HeaderMap::from_iter([header(&cfg.tokenName, token)?]);
   let response = reqwest::Client::new()
@@ -336,11 +330,9 @@ pub async fn get_produce_details<'a>(cfg: &Cfg, token: &str, req: &GetProduceDet
     .headers(headers)
     .query(&[("produceTestId", req.produceTestId), ("maxResultCount", req.maxResultCount)])
     .send()
-    .await
-    .map_err(|e| e.to_string())?
+    .await?
     .json::<Response<Option<ErrorResultData>>>()
-    .await
-    .map_err(|e| e.to_string())?;
+    .await?;
 
   match (response.success, response.result, response.error) {
     (true, Some(res), _) if res.is_success => Ok(res.data.to_string()),
