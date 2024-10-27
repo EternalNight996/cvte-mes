@@ -50,15 +50,9 @@ pub async fn login(cfg: &Cfg) -> e_utils::Result<String> {
     .await
     .map_err(|e| e.to_string())?;
 
-  // 根据success字段判断结果
-  if response.success {
-    // 返回result中的值，如果是None则返回一个自定义错误
-    response.result.ok_or_else(|| "未返回有效的token".into())
-  } else {
-    // 返回错误信息
-    let error_message = response
-      .error
-      .map_or("登录失败，未知错误".to_string(), |e| e.message);
-    Err(error_message.into())
+  match (response.success, response.result, response.error) {
+    (true, Some(token), _) => Ok(token),
+    (_, _, Some(e)) => Err(e.message.into()),
+    _ => Err("登录失败，未知错误".into()),
   }
 }

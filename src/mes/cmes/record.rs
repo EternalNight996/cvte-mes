@@ -1,8 +1,22 @@
-use super::{header, Cfg, ErrorResultData, Response};
+use super::{header, Cfg, Response};
 use reqwest::header::HeaderMap;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use strum::*;
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct RecordResult {
+  pub result: String,
+  pub message: String,
+}
+impl RecordResult {
+  pub fn success(&self) -> bool {
+    self.result == "PASS"
+  }
+  pub fn to_str(&self) -> e_utils::Result<String> {
+    Ok(serde_json::to_string_pretty(self)?)
+  }
+}
 /// 工位信息请求结构体
 #[derive(Debug, Serialize, Deserialize)]
 pub struct InsertAtSpiReq<'a> {
@@ -24,51 +38,24 @@ pub struct InsertAtSpiReq<'a> {
   pub rail: RailType,
 }
 
-/// 版面类型枚举
-#[derive(Debug, Deserialize, Serialize, FromRepr, Clone)]
-#[serde(from = "i32", into = "i32")]
-#[repr(i32)]
-pub enum SurfaceType {
+// 使用宏定义枚举
+define_enum! {
+  SurfaceType,
   BOT = 1,
   TOP = 2,
-  Horizontal = 3, // 卧式
-  Vertical = 4,   // 立式
-  BOTTOP = 5,     // BOT&TOP
+  Horizontal = 3,  // 卧式
+  Vertical = 4,    // 立式
+  BOTTOP = 5       // BOT&TOP
 }
 
-/// 轨道类型枚举
-#[derive(Debug, Deserialize, Serialize, FromRepr, Clone)]
-#[serde(from = "i32", into = "i32")]
-#[repr(i32)]
-pub enum RailType {
-  Public = 0, // 公共轨
-  First = 1,  // 1轨
-  Second = 2, // 2轨
-}
-// 实现 From trait 用于序列化和反序列化
-impl From<i32> for RailType {
-  fn from(value: i32) -> Self {
-    Self::from_repr(value).unwrap_or(Self::Public)
-  }
+define_enum! {
+  RailType,
+  Public = 0,  // 公共轨
+  First = 1,   // 1轨
+  Second = 2   // 2轨
 }
 
-impl From<RailType> for i32 {
-  fn from(value: RailType) -> i32 {
-    value as i32
-  }
-}
 
-impl From<i32> for SurfaceType {
-  fn from(value: i32) -> Self {
-    Self::from_repr(value).unwrap_or(Self::BOT)
-  }
-}
-
-impl From<SurfaceType> for i32 {
-  fn from(value: SurfaceType) -> i32 {
-    value as i32
-  }
-}
 /// # 序列扫描过站
 /// ```
 /// 请求头key
@@ -120,18 +107,11 @@ impl From<SurfaceType> for i32 {
 ///    "__abp": true
 ///  }
 ///   ```
-pub async fn insert_at_spi<'a>(
-  cfg: &Cfg,
-  token: &str,
-  req: &InsertAtSpiReq<'a>,
-) -> e_utils::Result<String> {
+pub async fn insert_at_spi<'a>(cfg: &Cfg, token: &str, req: &InsertAtSpiReq<'a>) -> e_utils::Result<String> {
   let url = format!("{}/api/services/feed/FeedSnRecord/InsertAtSpi", cfg.prodUrl);
-  let headers = HeaderMap::from_iter([
-    header(&cfg.tokenName, token)?,
-    header("Content-Type", "application/json")?,
-  ]);
+  let headers = HeaderMap::from_iter([header(&cfg.tokenName, token)?, header("Content-Type", "application/json")?]);
   let response = reqwest::Client::new()
-    .get(url)
+    .post(url)
     .headers(headers)
     .json(&json!( {
       "stationCode": &cfg.stationCode,
@@ -144,14 +124,12 @@ pub async fn insert_at_spi<'a>(
     .send()
     .await
     .map_err(|e| e.to_string())?
-    .json::<Response<ErrorResultData>>()
+    .json::<Response<Option<RecordResult>>>()
     .await
     .map_err(|e| e.to_string())?;
-
-  // 根据success字段判断结果
-  if response.result.is_success {
-    Ok(response.result.data.to_string())
-  } else {
-    Err(response.result.to_str().unwrap_or_default().into())
+  match (response.success, response.result) {
+    (true, Some(res)) if res.success() => Ok(res.result),
+    (true, Some(res)) => Err(res.to_str()?.into()),
+    _ => Err(response.error.unwrap_or_default().to_str()?.into()),
   }
 }

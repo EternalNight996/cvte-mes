@@ -4,8 +4,8 @@ use std::str::FromStr as _;
 pub use r#type::*;
 use reqwest::header::{HeaderName, HeaderValue};
 pub mod login;
-pub mod test_scan;
 pub mod record;
+pub mod test_scan;
 pub fn header(k: &str, v: &str) -> e_utils::Result<(HeaderName, HeaderValue)> {
   Ok((
     HeaderName::from_str(k).map_err(|e| e.to_string())?,
@@ -14,7 +14,7 @@ pub fn header(k: &str, v: &str) -> e_utils::Result<(HeaderName, HeaderValue)> {
 }
 mod r#type {
   use serde::{Deserialize, Serialize};
-use serde_json::Value;
+  use serde_json::Value;
   /// Mes信息
   #[derive(Deserialize, Debug, Clone, Serialize, Default)]
   pub struct Cfg {
@@ -42,7 +42,7 @@ use serde_json::Value;
 
   /// 登录响应结构体
   #[derive(Deserialize, Debug)]
-  pub struct Response<T> {
+  pub struct Response<T: Default> {
     pub result: T,
     pub target_url: Option<String>,
     pub success: bool,
@@ -50,13 +50,13 @@ use serde_json::Value;
     pub un_authorized_request: bool,
     pub __abp: bool,
   }
-//   /// 结果类型枚举
-//   #[derive(Deserialize, Debug)]
-//   #[serde(untagged)] // 允许不同的结构体
-//   pub enum LoginResult {
-//     ErrorResult(ErrorResultData), // 异常结果
-//     SuccessResult(String),        // 成功结果
-//   }
+  //   /// 结果类型枚举
+  //   #[derive(Deserialize, Debug)]
+  //   #[serde(untagged)] // 允许不同的结构体
+  //   pub enum LoginResult {
+  //     ErrorResult(ErrorResultData), // 异常结果
+  //     SuccessResult(String),        // 成功结果
+  //   }
 
   /// 错误信息结构体
   #[derive(Deserialize, Debug, Serialize, Default)]
@@ -72,7 +72,7 @@ use serde_json::Value;
     }
   }
   /// 错误信息结构体
-  #[derive(Deserialize, Serialize, Debug)]
+  #[derive(Deserialize, Serialize, Debug, Default)]
   pub struct ErrorResultData {
     pub is_success: bool,
     pub code: String,

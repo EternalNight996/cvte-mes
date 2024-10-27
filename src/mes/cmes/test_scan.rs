@@ -46,16 +46,9 @@ use super::{header, Cfg, ErrorResultData, Response};
 ///   "__abp": true
 /// }
 /// ```
-pub async fn check_lot_sn_code(
-  cfg: &Cfg,
-  token: &str,
-  lot_sn_code: &str,
-) -> e_utils::Result<String> {
+pub async fn check_lot_sn_code(cfg: &Cfg, token: &str, lot_sn_code: &str) -> e_utils::Result<String> {
   let url = format!("{}/api/services/test/TestScan/CheckLotSnCode", cfg.prodUrl);
-  let headers = header::HeaderMap::from_iter([
-    header(&cfg.tokenName, token)?,
-    header("Content-Type", "application/json")?,
-  ]);
+  let headers = header::HeaderMap::from_iter([header(&cfg.tokenName, token)?, header("Content-Type", "application/json")?]);
   let response = reqwest::Client::new()
     .post(url)
     .headers(headers)
@@ -66,15 +59,14 @@ pub async fn check_lot_sn_code(
     .send()
     .await
     .map_err(|e| e.to_string())?
-    .json::<Response<ErrorResultData>>()
+    .json::<Response<Option<ErrorResultData>>>()
     .await
     .map_err(|e| e.to_string())?;
-
-  // 根据success字段判断结果
-  if response.result.is_success {
-    Ok(response.result.msg)
-  } else {
-    Err(response.result.to_str().unwrap_or_default().into())
+  match (response.success, response.result, response.error) {
+    (true, Some(res), _) if res.is_success => Ok(res.msg),
+    (true, Some(res), _) => Err(res.to_str()?.into()),
+    (_, _, Some(err)) => Err(err.to_str()?.into()),
+    _ => Err("未知错误".into()),
   }
 }
 
@@ -138,19 +130,9 @@ pub struct SaveProduceTestByAutoTestReq<'a> {
 ///   "unAuthorizedRequest": false,
 ///   "__abp": true
 /// }
-pub async fn save_produce_test_by_auto_test<'a>(
-  cfg: &Cfg,
-  token: &str,
-  req: &SaveProduceTestByAutoTestReq<'a>,
-) -> e_utils::Result<String> {
-  let url = format!(
-    "{}/api/services/test/TestScan/SaveProduceTestByAutoTest",
-    cfg.prodUrl
-  );
-  let headers = header::HeaderMap::from_iter([
-    header(&cfg.tokenName, token)?,
-    header("Content-Type", "application/json")?,
-  ]);
+pub async fn save_produce_test_by_auto_test<'a>(cfg: &Cfg, token: &str, req: &SaveProduceTestByAutoTestReq<'a>) -> e_utils::Result<String> {
+  let url = format!("{}/api/services/test/TestScan/SaveProduceTestByAutoTest", cfg.prodUrl);
+  let headers = header::HeaderMap::from_iter([header(&cfg.tokenName, token)?, header("Content-Type", "application/json")?]);
   let response = reqwest::Client::new()
     .post(url)
     .headers(headers)
@@ -171,15 +153,15 @@ pub async fn save_produce_test_by_auto_test<'a>(
     .send()
     .await
     .map_err(|e| e.to_string())?
-    .json::<Response<ErrorResultData>>()
+    .json::<Response<Option<ErrorResultData>>>()
     .await
     .map_err(|e| e.to_string())?;
 
-  // 根据success字段判断结果
-  if response.result.is_success {
-    Ok(response.result.msg)
-  } else {
-    Err(response.result.to_str().unwrap_or_default().into())
+  match (response.success, response.result, response.error) {
+    (true, Some(res), _) if res.is_success => Ok(res.msg),
+    (true, Some(res), _) => Err(res.to_str()?.into()),
+    (_, _, Some(err)) => Err(err.to_str()?.into()),
+    _ => Err("未知错误".into()),
   }
 }
 
@@ -313,15 +295,15 @@ pub async fn get_info_by_sn(cfg: &Cfg, token: &str, req: &str) -> e_utils::Resul
     .send()
     .await
     .map_err(|e| e.to_string())?
-    .json::<Response<ErrorResultData>>()
+    .json::<Response<Option<ErrorResultData>>>()
     .await
     .map_err(|e| e.to_string())?;
 
-  // 根据success字段判断结果
-  if response.result.is_success {
-    Ok(response.result.data.to_string())
-  } else {
-    Err(response.result.to_str().unwrap_or_default().into())
+  match (response.success, response.result, response.error) {
+    (true, Some(res), _) if res.is_success => Ok(res.data.to_string()),
+    (true, Some(res), _) => Err(res.to_str()?.into()),
+    (_, _, Some(err)) => Err(err.to_str()?.into()),
+    _ => Err("未知错误".into()),
   }
 }
 
@@ -346,34 +328,24 @@ pub struct GetProduceDetailsReq<'a> {
 /// ```
 ///
 /// #校验异常
-pub async fn get_produce_details<'a>(
-  cfg: &Cfg,
-  token: &str,
-  req: &GetProduceDetailsReq<'a>,
-) -> e_utils::Result<String> {
-  let url = format!(
-    "{}/api/services/test/TestScan/GetProduceDetails",
-    cfg.prodUrl
-  );
+pub async fn get_produce_details<'a>(cfg: &Cfg, token: &str, req: &GetProduceDetailsReq<'a>) -> e_utils::Result<String> {
+  let url = format!("{}/api/services/test/TestScan/GetProduceDetails", cfg.prodUrl);
   let headers = header::HeaderMap::from_iter([header(&cfg.tokenName, token)?]);
   let response = reqwest::Client::new()
     .post(url)
     .headers(headers)
-    .query(&[
-      ("produceTestId", req.produceTestId),
-      ("maxResultCount", req.maxResultCount),
-    ])
+    .query(&[("produceTestId", req.produceTestId), ("maxResultCount", req.maxResultCount)])
     .send()
     .await
     .map_err(|e| e.to_string())?
-    .json::<Response<ErrorResultData>>()
+    .json::<Response<Option<ErrorResultData>>>()
     .await
     .map_err(|e| e.to_string())?;
 
-  // 根据success字段判断结果
-  if response.result.is_success {
-    Ok(response.result.data.to_string())
-  } else {
-    Err(response.result.to_str().unwrap_or_default().into())
+  match (response.success, response.result, response.error) {
+    (true, Some(res), _) if res.is_success => Ok(res.data.to_string()),
+    (true, Some(res), _) => Err(res.to_str()?.into()),
+    (_, _, Some(err)) => Err(err.to_str()?.into()),
+    _ => Err("未知错误".into()),
   }
 }
