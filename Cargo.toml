@@ -1,0 +1,95 @@
+
+[lib]
+# 设置 crate 类型，有三个选项：`rlib` (Rust library)，`dylib` (dynamic library)，`cdylib` (C-compatible dynamic library)
+crate-type = ["rlib"]
+proc-macro = false
+
+[features]
+build = []
+build-all = ["build"]
+default = []
+
+[dependencies]
+strum = { version = "0.26", features = ["derive"] }
+serde = "1"
+serde_json = "1"
+structopt = "0.3"
+e-utils = { version = "0.4", path = "../e-utils", features = [
+  "cmd",
+  "fs",
+  "parse",
+  "regex",
+] }
+tokio = { version = "1", features = ["full"] }
+reqwest = { version = "0.12", features = ["json"] }
+
+[target.'cfg(windows)'.build-dependencies]
+winresource = "0.1"
+static_vcruntime = "2"
+
+[build-dependencies]
+built = { version = "0.7", features = ["chrono", "git2"], optional = true }
+
+[package.metadata.winresource]
+OriginalFilename = "cvte-mes.exe"
+Comments = "CTVE-MES"
+
+[dev-dependencies]
+cvte-mes = { path = "./", features = [] }
+e-utils = { version = "0.4", path = "../e-utils", features = ["cmd", "fs"] }
+e-log = { version = "0.2", path = "../e-log", features = ["log"] }
+
+
+[package]
+name = "cvte-mes"
+version = "0.3.0"
+authors = [
+  "Eternal Night <EternalNight996@gmail.com, EternalNightYeah2@yeah.net>",
+]
+edition = "2021"
+rust-version = "1.78.0"
+license-file = "E-LICENSE"
+homepage = "https://gitee.com/eternalnight996"
+categories = ["gui", "network-programming"]
+description = "MII - Machine Internal Inspection"
+documentation = "https://docs.rs"
+keywords = ["gui", "e-", "heg"]
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+
+[profile.dev]
+# 0: 无优化 1: 基本优化 2: 一些优化 3: 全部优化 "s": 优化输出的二进制文件的大小 "z": 优化二进制文件大小，但也会关闭循环向量化
+opt-level = 0
+# debug 控制 -C debuginfo 标志，而后者用于控制最终二进制文件输出的 debug 信息量。
+# 支持的选项包括: 0 或 false：不输出任何 debug 信息 1: 行信 2: 完整的 debug 信息
+debug = true
+# split-debuginfo 控制 -C split-debuginfo 标志，用于决定输出的 debug 信息是存放在二进制可执行文件里还是邻近的文件中。
+# split-debuginfo = '...'
+# debug-assertion 会提供运行时的检查，该检查只能用于 debug 模式，原因是对于 release 来说，这种检查的成本较为高昂。
+debug-assertions = true
+# 用于控制 -C overflow-checks 标志，该标志可以控制运行时的整数溢出行为。当开启后，整数溢出会导致 panic。
+overflow-checks = true
+# lto 用于控制 -C lto 标志，而后者可以控制 LLVM 的链接时优化( link time optimizations )。通过对整个程序进行分析，并以增加链接时间为代价，LTO 可以生成更加优化的代码。
+lto = false
+# "unwind": 遇到 panic 后对栈进行展开( unwind ) # "abort": 遇到 panic 后直接停止程序
+panic = 'unwind'
+# incremental 控制 -C incremental 标志，用于开启或关闭增量编译。开启增量编译时，rustc 会将必要的信息存放到硬盘中( target 目录中 )，当下次编译时，这些信息可以被复用以改善编译时间。
+incremental = true
+# codegen-units 控制 -C codegen-units 标志，可以指定一个包会被分隔为多少个代码生成单元。更多的代码生成单元会提升代码的并行编译速度，但是可能会降低运行速度。
+codegen-units = 256
+# rpath 代表硬编码到二进制可执行文件或库文件中的运行时代码搜索(runtime search path)，动态链接库的加载器就通过它来搜索所需的库。
+rpath = false
+strip = false
+
+[profile.release]
+opt-level = "s"
+debug = false
+# split-debuginfo = '...'
+debug-assertions = false
+overflow-checks = false
+incremental = false
+rpath = false
+strip = true
+lto = true
+panic = 'abort'
+codegen-units = 1
