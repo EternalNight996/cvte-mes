@@ -1,7 +1,7 @@
 /// API
 pub mod api;
 pub use api::*;
-use e_utils::{Error, Result};
+use e_utils::AnyResult;
 use serde::{Deserialize, Serialize};
 use std::ffi::OsString;
 use structopt::{clap::arg_enum, StructOpt};
@@ -17,66 +17,30 @@ arg_enum! {
 }
 
 /// cvte-mes
-///
 /// ------------------------------------------------------
-///
-///
 #[derive(StructOpt, Debug, Clone, Serialize, Deserialize)]
 #[structopt(name = "", setting = structopt::clap::AppSettings::TrailingVarArg,)]
 #[structopt(after_help = r#"
-# Example
------------------------------------------------------------
-# Cmd Example Active SYSTEM
+# CMES Example
 ```sh
-cvte-mes.exe --api active --task rkms -- kms.03k.org
-cvte-mes.exe --api active --task active -- YVWGF-BXNMC-HTQYQ-CPQ99-66QFC
-cvte-mes.exe --api active --task check
-```
------------------------------------------------------------
+# 测试登录
+cargo run -- --api CMES --task User:CreateToken --setting '{\"stationName\":\"测试\",\"prodUrl\":\"http://url.cn\",\"sysUrl\":\"http://url.cn\",\"userName\":\"uname\",\"passWord\":\"passwd\",\"tokenName\":\"cmes_test_info\",\"causeNo\":\"test\",\"workCenter\":\"TEST01\",\"testFrameidNo\":\"TEST\",\"stationCode\":\"test\"}'
 
-# Cmd Example deActive SYSTEM
-```sh
-cvte-mes.exe --api active --task ckms
-cvte-mes.exe --api active --task deactive
-cvte-mes.exe --api active --task check
-```
------------------------------------------------------------
+# 判断测试工步
+cargo run -- --api CMES --task TestScan:CheckLotSnCode --args '条码' --setting '{\"stationName\":\"测试\",\"prodUrl\":\"http://url.cn\",\"sysUrl\":\"http://url.cn\",\"userName\":\"uname\",\"passWord\":\"passwd\",\"tokenName\":\"cmes_test_info\",\"causeNo\":\"test\",\"workCenter\":\"TEST01\",\"testFrameidNo\":\"TEST\",\"stationCode\":\"test\"'
 
-# Cmd Example empty task
-```sh
-cvte-mes.exe --api clean --task empty_recycle_bin
-cvte-mes.exe --api clean --task empty_access_log
-cvte-mes.exe --api clean --task empty_netshare
-cvte-mes.exe --api clean --task empty_activity_history
-cvte-mes.exe --api clean --task empty_run_history
-```
------------------------------------------------------------
+# 根据条码获取批次
+cargo run -- --api CMES --task TestScan:GetInfoBySn --args '条码' --setting '{\"stationName\":\"测试\",\"prodUrl\":\"http://url.cn\",\"sysUrl\":\"http://url.cn\",\"userName\":\"uname\",\"passWord\":\"passwd\",\"tokenName\":\"cmes_test_info\",\"causeNo\":\"test\",\"workCenter\":\"TEST01\",\"testFrameidNo\":\"TEST\",\"stationCode\":\"test\"}'
 
-# Cmd Example Drive commands
-```sh
-# Find drive from node
-cvte-mes.exe --init --api Drive --full --task findnodes --filter "Intel(R) Ethernet Controller (3) I225-V #4" -- =net
-# Remove drive
-cvte-mes.exe --init --api Drive --full --task remove --args /force --filter "Intel(R) Ethernet Controller (3) I225-V #4" -- =net
-# Disable drive
-cvte-mes.exe --init --api Drive --full --task disable --args /force --filter "Intel(R) Ethernet Controller (3) I225-V #4" -- =net
-# Enable drive
-cvte-mes.exe --init --api Drive --full --task enable --args /force --filter "Intel(R) Ethernet Controller (3) I225-V #4" -- =net
-# Restart drive
-cvte-mes.exe --init --api Drive --full --task restart --args /force --filter "Intel(R) Ethernet Controller (3) I225-V #4" -- =net
-# Scan all new drive
-cvte-mes.exe --api Drive --task scan
-# Delete drive throgh node info : /reboot
-cvte-mes.exe --init --api Drive --full --task delete-find --args /force --filter "Intel(R) Ethernet Controller (3) I225-V #4" -- =net
-# Delete with uninstall drive throgh inf file : /reboot
-cvte-mes.exe --api Drive --task delete --args F:\device.inf /uninstall /force
-# Add drive throgh inf file : /reboot
-cvte-mes.exe --api Drive --task add --args F:\device.inf /install /force
-# Add more drive throgh inf file : /reboot
-cvte-mes.exe --api Drive --task add-file --args F:\drives /install /force
-# Output more or one drive <oem#.inf | *> <target directory>
-cvte-mes.exe --api Drive --task export --args * F:\drives
-```
+# 保存测试结果
+cargo run -- --api CMES --task TestScan:SaveProduceTestByAutoTest --args '"{\"lotSnCode\":\"XHA241590001\",\"isPass\":true,\"testTime\":\"2024-10-28 02:19:44\",\"workerNo\":\"梦游\",\"keyInfo\":\"\",\"autoTestVersion\":\"heg-autotest2-v0.1.0\",\"testStartDate\":\"2024-10-28 02:19:44\",\"testEndDate\":\"2024-10-28 02:19:44\",\"testItem\":\"网络MAC\"}"'  --setting '{\"stationName\":\"测试\",\"prodUrl\":\"http://url.cn\",\"sysUrl\":\"http://url.cn\",\"userName\":\"uname\",\"passWord\":\"passwd\",\"tokenName\":\"cmes_test_info\",\"causeNo\":\"test\",\"workCenter\":\"TEST01\",\"testFrameidNo\":\"TEST\",\"stationCode\":\"test\"}'
+# 查询测试项结果
+cargo run -- --api CMES --task TestScan:GetProduceDetails --args '{\"produceTestId\":\"\",\"maxResultCount\":\"\"}' --setting '{\"stationName\":\"测试\",\"prodUrl\":\"http://url.cn\",\"sysUrl\":\"http://url.cn\",\"userName\":\"uname\",\"passWord\":\"passwd\",\"tokenName\":\"cmes_test_info\",\"causeNo\":\"test\",\"workCenter\":\"TEST01\",\"testFrameidNo\":\"TEST\",\"stationCode\":\"test\"}'
+
+# 序列扫描过站
+cargo run -- --api CMES --task Record:InsertAtSpi --args '条码' --setting '{\"stationName\":\"测试\",\"prodUrl\":\"http://url.cn\",\"sysUrl\":\"http://url.cn\",\"userName\":\"uname\",\"passWord\":\"passwd\",\"tokenName\":\"cmes_test_info\",\"causeNo\":\"test\",\"workCenter\":\"TEST01\",\"testFrameidNo\":\"TEST\",\"stationCode\":\"test\"}'```
+
+# SCM Example
 -----------------------------------------------------------
 "#)]
 #[allow(clippy::struct_excessive_bools)]
@@ -112,18 +76,30 @@ impl Default for Opts {
 impl Opts {
   /// # Example
   ///```rust
-  /// fn main() -> e_utils::Result<()> {
-  ///   if cvte_mes::input::Opts::check_empty() {
-  ///     let _ = app::MyApp::launch()?;
-  ///   } else {
-  ///     let opts = cvte_mes::input::Opts::new(None as Option<Vec<String>>)?;
-  ///     let res = cvte_mes::input::api(opts)?;
-  ///     println!("{}", res.to_str()?);
+  /// use cvte_mes::input::api;
+  /// use cvte_mes::input::Opts;
+  /// use e_utils::{cmd::CmdResult, Result};
+  /// use serde_json::Value;
+  /// #[tokio::main]
+  /// async fn main() -> Result<()> {
+  ///   let opts = Opts::new(None as Option<Vec<&str>>)?;
+  ///   let mut res: CmdResult<Value> = CmdResult {
+  ///     content: String::new(),
+  ///     status: false,
+  ///     opts: Value::Null,
+  ///   };
+  ///   match api(opts).await {
+  ///     Ok(v) => {
+  ///       res.content = v;
+  ///       res.status = true;
+  ///     }
+  ///     Err(e) => res.content = e.to_string(),
   ///   }
+  ///   println!("{}", res.to_string_pretty()?);
   ///   Ok(())
   /// }
   /// ```
-  pub fn new<I>(args: Option<I>) -> Result<Self>
+  pub fn new<I>(args: Option<I>) -> AnyResult<Self>
   where
     Self: Sized,
     I: IntoIterator,
@@ -132,7 +108,7 @@ impl Opts {
     match args {
       Some(arg) => match Opts::from_iter_safe(arg) {
         Ok(opt) => Ok(opt),
-        Err(e) => Err(Error::String(e.to_string())),
+        Err(e) => Err(e.into()),
       },
       None => Ok(Opts::from_args()),
     }

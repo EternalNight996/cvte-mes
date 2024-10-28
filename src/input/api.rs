@@ -1,3 +1,5 @@
+use cmes::test_scan::{get_info_by_sn, GetInfoBySnRes};
+
 use super::{Opts, OptsApi};
 use crate::mes::*;
 
@@ -30,11 +32,11 @@ pub async fn api(op: Opts) -> e_utils::AnyResult<String> {
         "TestScan:GetInfoBySn" => {
           let req: &String = op.args.get(0).ok_or("请把条码输入在--args 条码")?;
           let token = cmes::login::login(&cfg).await?;
-          cmes::test_scan::get_info_by_sn(&cfg, &token, req).await
+          cmes::test_scan::get_info_by_sn(&cfg, &token, req).await.map(|v| v.to_string())
         }
         "TestScan:SaveProduceTestByAutoTest" => {
-          let req: cmes::test_scan::SaveProduceTestByAutoTestReq<'_> =
-            op.args.get(0).and_then(|v| serde_json::from_str(v).ok()).ok_or("请把条码输入在--args 条码")?;
+          let arg = &op.args.join(" ");
+          let req: cmes::test_scan::SaveProduceTestByAutoTestReq<'_> = serde_json::from_str(arg)?;
           let token = cmes::login::login(&cfg).await?;
           cmes::test_scan::save_produce_test_by_auto_test(&cfg, &token, &req).await
         }
@@ -45,11 +47,17 @@ pub async fn api(op: Opts) -> e_utils::AnyResult<String> {
           cmes::test_scan::get_produce_details(&cfg, &token, &req).await
         }
         "Record:InsertAtSpi" => {
-          let req: cmes::record::InsertAtSpiReq<'_> = op.args.get(0).and_then(|v| serde_json::from_str(v).ok()).ok_or("请把条码输入在--args 条码")?;
+          let req = op.args.get(0).ok_or("请把条码输入在--args 条码")?;
           let token = cmes::login::login(&cfg).await?;
-          cmes::record::insert_at_spi(&cfg, &token, &req).await
+          let v: GetInfoBySnRes = serde_json::from_value(get_info_by_sn(&cfg, &token, req).await?)?;
+          let insert_req = cmes::record::InsertAtSpiReq {
+            moLotNo: &v.moLotNo,
+            snCode: req,
+            ..Default::default()
+          };
+          cmes::record::insert_at_spi(&cfg, &token, insert_req).await
         }
-        "CreateToken" => cmes::login::login(&cfg).await,
+        "User:CreateToken" => cmes::login::login(&cfg).await,
         _ => Err("Unknow Task ".into()),
       }
     }

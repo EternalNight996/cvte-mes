@@ -2,7 +2,7 @@
 
 use reqwest::header::{self};
 use serde::{Deserialize, Serialize};
-use serde_json::json;
+use serde_json::{json, Value};
 
 use super::{header, Cfg, ErrorResultData, Response};
 
@@ -61,14 +61,14 @@ pub async fn check_lot_sn_code(cfg: &Cfg, token: &str, lot_sn_code: &str) -> e_u
     .json::<Response<Option<ErrorResultData>>>()
     .await?;
   match (response.success, response.result, response.error) {
-    (true, Some(res), _) if res.is_success => Ok(res.msg),
+    (true, Some(res), _) if res.isSuccess => Ok(res.msg),
     (true, Some(res), _) => Err(res.to_str()?.into()),
     (_, _, Some(err)) => Err(err.to_str()?.into()),
     _ => Err("未知错误".into()),
   }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct SaveProduceTestByAutoTestReq<'a> {
   /// 条码/SN code
   pub lotSnCode: &'a str,
@@ -154,7 +154,7 @@ pub async fn save_produce_test_by_auto_test<'a>(cfg: &Cfg, token: &str, req: &Sa
     .await?;
 
   match (response.success, response.result, response.error) {
-    (true, Some(res), _) if res.is_success => Ok(res.msg),
+    (true, Some(res), _) if res.isSuccess => Ok(res.msg),
     (true, Some(res), _) => Err(res.to_str()?.into()),
     (_, _, Some(err)) => Err(err.to_str()?.into()),
     _ => Err("未知错误".into()),
@@ -172,7 +172,7 @@ pub struct GetInfoBySnRes {
   /// 批次号
   pub moLotNo: String,
   /// 订单数量
-  pub orderQty: i32,
+  pub orderQty: f32,
   /// 数量
   pub qty: i32,
   /// 组件基础ID
@@ -188,9 +188,9 @@ pub struct GetInfoBySnRes {
   /// SN序号
   pub snNum: i32,
   /// SN数量
-  pub snQty: i32,
+  pub snQty: f32,
   /// 内部编号
-  pub innerNum: i32,
+  pub innerNum: f32,
   /// 子类型
   pub subType: String,
   /// 零件ID
@@ -281,7 +281,7 @@ pub struct GetInfoBySnRes {
 ///   "unAuthorizedRequest": false,
 ///   "__abp": true
 /// }
-pub async fn get_info_by_sn(cfg: &Cfg, token: &str, req: &str) -> e_utils::AnyResult<String> {
+pub async fn get_info_by_sn(cfg: &Cfg, token: &str, req: &str) -> e_utils::AnyResult<Value> {
   let url = format!("{}/api/services/test/TestScan/GetInfoBySn", cfg.prodUrl);
   let headers = header::HeaderMap::from_iter([header(&cfg.tokenName, token)?]);
   let response = reqwest::Client::new()
@@ -292,16 +292,15 @@ pub async fn get_info_by_sn(cfg: &Cfg, token: &str, req: &str) -> e_utils::AnyRe
     .await?
     .json::<Response<Option<ErrorResultData>>>()
     .await?;
-
   match (response.success, response.result, response.error) {
-    (true, Some(res), _) if res.is_success => Ok(res.data.to_string()),
+    (true, Some(res), _) if res.isSuccess => Ok(res.data),
     (true, Some(res), _) => Err(res.to_str()?.into()),
     (_, _, Some(err)) => Err(err.to_str()?.into()),
     _ => Err("未知错误".into()),
   }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct GetProduceDetailsReq<'a> {
   /// 条码/SN code
   pub produceTestId: &'a str,
@@ -335,7 +334,7 @@ pub async fn get_produce_details<'a>(cfg: &Cfg, token: &str, req: &GetProduceDet
     .await?;
 
   match (response.success, response.result, response.error) {
-    (true, Some(res), _) if res.is_success => Ok(res.data.to_string()),
+    (true, Some(res), _) if res.isSuccess => Ok(res.data.to_string()),
     (true, Some(res), _) => Err(res.to_str()?.into()),
     (_, _, Some(err)) => Err(err.to_str()?.into()),
     _ => Err("未知错误".into()),

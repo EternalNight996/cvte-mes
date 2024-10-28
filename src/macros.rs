@@ -1,11 +1,11 @@
-macro_rules! cfg_api {
-  ($($item:item)*) => {
-      $(
-          #[cfg(feature = "api")]
-          $item
-      )*
-  }
-}
+// macro_rules! cfg_api {
+//   ($($item:item)*) => {
+//       $(
+//           #[cfg(feature = "api")]
+//           $item
+//       )*
+//   }
+// }
 
 /// 定义枚举的宏
 macro_rules! define_enum {

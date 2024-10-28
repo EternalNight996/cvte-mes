@@ -41,10 +41,10 @@ mod r#type {
   #[derive(Deserialize, Debug)]
   pub struct Response<T: Default> {
     pub result: T,
-    pub target_url: Option<String>,
+    pub targetUrl: Option<String>,
     pub success: bool,
     pub error: Option<Error>,
-    pub un_authorized_request: bool,
+    pub unAuthorizedRequest: bool,
     pub __abp: bool,
   }
   //   /// 结果类型枚举
@@ -64,21 +64,21 @@ mod r#type {
     pub validation_errors: Option<Vec<String>>,
   }
   impl Error {
-    pub fn to_str(&self) -> e_utils::AnyResult<String> {
+    pub fn to_str(&self) -> e_utils::Result<String> {
       Ok(serde_json::to_string_pretty(self)?)
     }
   }
   /// 错误信息结构体
   #[derive(Deserialize, Serialize, Debug, Default)]
   pub struct ErrorResultData {
-    pub is_success: bool,
+    pub isSuccess: bool,
     pub code: String,
     pub msg: String,
     #[serde(default)]
     pub data: Value,
   }
   impl ErrorResultData {
-    pub fn to_str(&self) -> e_utils::AnyResult<String> {
+    pub fn to_str(&self) -> e_utils::Result<String> {
       Ok(serde_json::to_string_pretty(self)?)
     }
   }

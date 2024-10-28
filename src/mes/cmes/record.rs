@@ -18,26 +18,29 @@ impl RecordResult {
   }
 }
 /// 工位信息请求结构体
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize)]
 pub struct InsertAtSpiReq<'a> {
   /// 批次号
   pub moLotNo: &'a str,
   /// 条码
   pub snCode: &'a str,
   /// 版面
-  /// - BOT = 1
-  /// - TOP = 2
-  /// - 卧式 = 3
-  /// - 立式 = 4
-  /// - BOT&TOP = 5
+  #[serde(default)]
   pub surface: SurfaceType,
   /// 轨道
-  /// - 公共轨 = 0
-  /// - 1轨 = 1
-  /// - 2轨 = 2
+  #[serde(default)]
   pub rail: RailType,
 }
-
+impl Default for InsertAtSpiReq<'_> {
+  fn default() -> Self {
+    Self {
+      moLotNo: "",
+      snCode: "",
+      surface: SurfaceType::BOT,
+      rail: RailType::Public,
+    }
+  }
+}
 // 使用宏定义枚举
 define_enum! {
   SurfaceType,
@@ -54,7 +57,6 @@ define_enum! {
   First = 1,   // 1轨
   Second = 2   // 2轨
 }
-
 
 /// # 序列扫描过站
 /// ```
@@ -107,7 +109,7 @@ define_enum! {
 ///    "__abp": true
 ///  }
 ///   ```
-pub async fn insert_at_spi<'a>(cfg: &Cfg, token: &str, req: &InsertAtSpiReq<'a>) -> e_utils::AnyResult<String> {
+pub async fn insert_at_spi<'a>(cfg: &Cfg, token: &str, req: InsertAtSpiReq<'a>) -> e_utils::AnyResult<String> {
   let url = format!("{}/api/services/feed/FeedSnRecord/InsertAtSpi", cfg.prodUrl);
   let headers = HeaderMap::from_iter([header(&cfg.tokenName, token)?, header("Content-Type", "application/json")?]);
   let response = reqwest::Client::new()
@@ -118,13 +120,13 @@ pub async fn insert_at_spi<'a>(cfg: &Cfg, token: &str, req: &InsertAtSpiReq<'a>)
       "lineCode": &cfg.workCenter,
       "moLotNo": &req.moLotNo,
       "snCode": &req.snCode,
-      "surface": &req.surface,
-      "rail": &req.rail,
+      "surface": req.surface as i32,
+      "rail": req.rail as i32
     }))
-    .send()
-    .await?
-    .json::<Response<Option<RecordResult>>>()
-    .await?;
+  .send()
+  .await?
+  .json::<Response<Option<RecordResult>>>()
+  .await?;
   match (response.success, response.result) {
     (true, Some(res)) if res.success() => Ok(res.result),
     (true, Some(res)) => Err(res.to_str()?.into()),

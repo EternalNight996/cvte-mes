@@ -5,7 +5,7 @@ crate-type = ["rlib"]
 proc-macro = false
 
 [features]
-build = []
+build = ["built"]
 build-all = ["build"]
 default = []
 

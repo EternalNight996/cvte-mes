@@ -1,4 +1,6 @@
 #![allow(non_snake_case)]
+use e_utils::AnyResult;
+
 use super::{Cfg, Response};
 
 /// # 获取Token
@@ -38,7 +40,7 @@ use super::{Cfg, Response};
 ///     "__abp": true
 /// }
 /// ```
-pub async fn login(cfg: &Cfg) -> Result<String, Box<dyn std::error::Error>> {
+pub async fn login(cfg: &Cfg) -> AnyResult<String> {
   let url = format!("{}/api/Account/CreateToken", cfg.sysUrl);
   // 账号不带@的用Base64加密，否则用MD5加密
   let passwd = if cfg.userName.contains("@") {
@@ -50,10 +52,10 @@ pub async fn login(cfg: &Cfg) -> Result<String, Box<dyn std::error::Error>> {
     .get(url)
     .query(&[("Email", &cfg.userName), ("Pwd", &passwd)])
     .send()
-    .await?
+    .await
+    .map_err(|_e| format!("无法链接 {} 请检查网络状态", cfg.sysUrl))?
     .json::<Response<Option<String>>>()
     .await?;
-
   match (response.success, response.result, response.error) {
     (true, Some(token), _) => Ok(token),
     (_, _, Some(e)) => Err(e.message.into()),
