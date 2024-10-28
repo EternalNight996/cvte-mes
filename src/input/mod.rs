@@ -1,7 +1,7 @@
 /// API
 pub mod api;
 pub use api::*;
-use e_utils::AnyResult;
+use e_utils::{cmd::CmdResult, AnyResult};
 use serde::{Deserialize, Serialize};
 use std::ffi::OsString;
 use structopt::{clap::arg_enum, StructOpt};
@@ -117,4 +117,12 @@ impl Opts {
   pub fn check_empty() -> bool {
     std::env::args().len() == 1
   }
+  pub fn default_res() -> CmdRes {
+    CmdRes {
+      content: String::new(),
+      status: false,
+      opts: Opts::default(),
+    }
+  }
 }
+pub type CmdRes = CmdResult<Opts>;

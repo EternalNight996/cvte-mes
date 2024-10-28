@@ -1,10 +1,11 @@
 use cvte_mes::input::api;
 use cvte_mes::input::Opts;
+use e_utils::AnyResult;
 use e_utils::{cmd::CmdResult, Result};
 use serde_json::Value;
 
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn main() -> AnyResult<()> {
   let opts = Opts::new(None as Option<Vec<&str>>)?;
   let mut res: CmdResult<Value> = CmdResult {
     content: String::new(),

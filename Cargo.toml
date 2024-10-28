@@ -6,6 +6,7 @@ proc-macro = false
 
 [features]
 build = ["built"]
+input-api = ["structopt"]
 build-all = ["build"]
 default = []
 
@@ -13,13 +14,13 @@ default = []
 strum = { version = "0.26", features = ["derive"] }
 serde = "1"
 serde_json = "1"
-structopt = "0.3"
+structopt = { version = "0.3", optional = true }
 e-utils = { version = "0.4", path = "../e-utils", features = [
   "cmd",
   "fs",
   "parse",
   "regex",
-  "base64"
+  "base64",
 ] }
 tokio = { version = "1", features = ["full"] }
 reqwest = { version = "0.12", features = ["json"] }
@@ -37,14 +38,14 @@ OriginalFilename = "cvte-mes.exe"
 Comments = "CTVE-MES"
 
 [dev-dependencies]
-cvte-mes = { path = "./", features = [] }
+cvte-mes = { path = "./", features = ["input-api"] }
 e-utils = { version = "0.4", path = "../e-utils", features = ["cmd", "fs"] }
 e-log = { version = "0.2", path = "../e-log", features = ["log"] }
 
 
 [package]
 name = "cvte-mes"
-version = "0.3.0"
+version = "0.1.0"
 authors = [
   "Eternal Night <EternalNight996@gmail.com, EternalNightYeah2@yeah.net>",
 ]

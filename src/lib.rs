@@ -36,6 +36,7 @@
 mod macros;
 
 /// Cmd input
+#[cfg(feature = "input-api")]
 pub mod input;
 /// MES
 pub mod mes;

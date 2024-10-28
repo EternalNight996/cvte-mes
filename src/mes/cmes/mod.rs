@@ -1,15 +1,17 @@
 #![allow(non_snake_case)]
 use std::str::FromStr as _;
 
+use e_utils::AnyRes as _;
 pub use r#type::*;
 use reqwest::header::{HeaderName, HeaderValue};
 pub mod login;
 pub mod record;
 pub mod test_scan;
-pub fn header(k: &str, v: &str) -> Result<(HeaderName, HeaderValue), Box<dyn std::error::Error>> {
-  Ok((HeaderName::from_str(k)?, HeaderValue::from_str(v)?))
+pub fn header(k: &str, v: &str) -> e_utils::Result<(HeaderName, HeaderValue)> {
+  Ok((HeaderName::from_str(k).any()?, HeaderValue::from_str(v).any()?))
 }
 mod r#type {
+  use e_utils::AnyRes;
   use serde::{Deserialize, Serialize};
   use serde_json::Value;
   /// Mes信息
@@ -65,7 +67,7 @@ mod r#type {
   }
   impl Error {
     pub fn to_str(&self) -> e_utils::Result<String> {
-      Ok(serde_json::to_string_pretty(self)?)
+      serde_json::to_string_pretty(self).any()
     }
   }
   /// 错误信息结构体
@@ -79,7 +81,7 @@ mod r#type {
   }
   impl ErrorResultData {
     pub fn to_str(&self) -> e_utils::Result<String> {
-      Ok(serde_json::to_string_pretty(self)?)
+      serde_json::to_string_pretty(self).any()
     }
   }
 }
