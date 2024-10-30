@@ -1,9 +1,10 @@
 use serde::{Deserialize, Serialize};
+use strum::{Display, VariantArray};
 
 pub mod cmes;
 pub mod scm;
 
-#[derive(Default, Clone, Copy, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Default, Clone, Copy, Debug, Serialize, Deserialize, PartialEq, VariantArray, Display)]
 pub enum CVTE {
   #[default]
   CMES,
