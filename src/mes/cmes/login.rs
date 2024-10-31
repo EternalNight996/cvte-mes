@@ -53,7 +53,7 @@ pub async fn login(cfg: &Cfg) -> AnyResult<String> {
     .query(&[("Email", &cfg.userName), ("Pwd", &passwd)])
     .send()
     .await
-    .map_err(|_e| format!("无法链接 {} 请检查网络状态", cfg.sysUrl))?
+    .map_err(|e| format!("无法链接 {} 请检查网络状态: {e}", cfg.sysUrl))?
     .json::<Response<Option<String>>>()
     .await?;
   match (response.success, response.result, response.error) {
