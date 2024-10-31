@@ -2,7 +2,7 @@
 
 use reqwest::header::{self};
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::json;
 
 use super::{header, Cfg, ErrorResultData, Response};
 
@@ -281,7 +281,7 @@ pub struct GetInfoBySnRes {
 ///   "unAuthorizedRequest": false,
 ///   "__abp": true
 /// }
-pub async fn get_info_by_sn(cfg: &Cfg, token: &str, req: &str) -> e_utils::AnyResult<Value> {
+pub async fn get_info_by_sn(cfg: &Cfg, token: &str, req: &str) -> e_utils::AnyResult<GetInfoBySnRes> {
   let url = format!("{}/api/services/test/TestScan/GetInfoBySn", cfg.prodUrl);
   let headers = header::HeaderMap::from_iter([header(&cfg.tokenName, token)?]);
   let response = reqwest::Client::new()
@@ -293,7 +293,7 @@ pub async fn get_info_by_sn(cfg: &Cfg, token: &str, req: &str) -> e_utils::AnyRe
     .json::<Response<Option<ErrorResultData>>>()
     .await?;
   match (response.success, response.result, response.error) {
-    (true, Some(res), _) if res.isSuccess => Ok(res.data),
+    (true, Some(res), _) if res.isSuccess => Ok(serde_json::from_value(res.data)?),
     (true, Some(res), _) => Err(res.to_str()?.into()),
     (_, _, Some(err)) => Err(err.to_str()?.into()),
     _ => Err("未知错误".into()),
