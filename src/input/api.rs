@@ -49,7 +49,7 @@ pub async fn api(op: Opts) -> e_utils::AnyResult<String> {
         "Record:InsertAtSpi" => {
           let req = op.args.get(0).ok_or("请把条码输入在--args 条码")?;
           let token = cmes::login::login(&cfg).await?;
-          let v: GetInfoBySnRes = serde_json::from_value(get_info_by_sn(&cfg, &token, req).await?)?;
+          let v: GetInfoBySnRes = get_info_by_sn(&cfg, &token, req).await?;
           let insert_req = cmes::record::InsertAtSpiReq {
             moLotNo: &v.moLotNo,
             snCode: req,

@@ -1,6 +1,4 @@
 #![allow(non_snake_case)]
-
-use e_utils::AnyRes;
 use reqwest::header::{self};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -217,7 +215,7 @@ pub struct GetInfoBySnRes {
 }
 impl GetInfoBySnRes {
   pub fn to_str(&self) -> e_utils::AnyResult<String> {
-    serde_json::to_string(self)
+    Ok(serde_json::to_string(self)?)
   }
 }
 /// # 根据条码获取批次
