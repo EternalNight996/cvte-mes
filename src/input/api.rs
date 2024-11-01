@@ -32,7 +32,7 @@ pub async fn api(op: Opts) -> e_utils::AnyResult<String> {
         "TestScan:GetInfoBySn" => {
           let req: &String = op.args.get(0).ok_or("请把条码输入在--args 条码")?;
           let token = cmes::login::login(&cfg).await?;
-          cmes::test_scan::get_info_by_sn(&cfg, &token, req).await.map(|v| v.to_string())
+          cmes::test_scan::get_info_by_sn(&cfg, &token, req).await.and_then(|v| v.to_str())
         }
         "TestScan:SaveProduceTestByAutoTest" => {
           let arg = &op.args.join(" ");
