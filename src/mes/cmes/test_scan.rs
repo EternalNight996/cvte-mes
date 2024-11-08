@@ -56,7 +56,8 @@ pub async fn check_lot_sn_code(cfg: &Cfg, token: &str, lot_sn_code: &str) -> e_u
       "stationCode": &cfg.stationCode,
     }))
     .send()
-    .await?
+    .await
+    .map_err(|_e| format!("CMES(check_lot_sn_code)： 请检查网络状态!"))?
     .json::<Response<Option<ErrorResultData>>>()
     .await?;
   match (response.success, response.result, response.error) {
@@ -148,7 +149,8 @@ pub async fn save_produce_test_by_auto_test<'a>(cfg: &Cfg, token: &str, req: &Sa
       "testItem": req.testItem,
     }))
     .send()
-    .await?
+    .await
+    .map_err(|_e| format!("CMES(save_produce_test_by_auto_test)： 请检查网络状态!"))?
     .json::<Response<Option<ErrorResultData>>>()
     .await?;
 
@@ -292,7 +294,8 @@ pub async fn get_info_by_sn(cfg: &Cfg, token: &str, req: &str) -> e_utils::AnyRe
     .headers(headers)
     .query(&[("code", req)])
     .send()
-    .await?
+    .await
+    .map_err(|_e| format!("CMES(get_info_by_sn)： 请检查网络状态!"))?
     .json::<Response<Option<ErrorResultData>>>()
     .await?;
   match (response.success, response.result, response.error) {
@@ -332,7 +335,8 @@ pub async fn get_produce_details<'a>(cfg: &Cfg, token: &str, req: &GetProduceDet
     .headers(headers)
     .query(&[("produceTestId", req.produceTestId), ("maxResultCount", req.maxResultCount)])
     .send()
-    .await?
+    .await
+    .map_err(|_e| format!("CMES(get_produce_details)： 请检查网络状态!"))?
     .json::<Response<Option<ErrorResultData>>>()
     .await?;
 

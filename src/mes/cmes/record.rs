@@ -123,10 +123,11 @@ pub async fn insert_at_spi<'a>(cfg: &Cfg, token: &str, req: InsertAtSpiReq<'a>) 
       "surface": req.surface as i32,
       "rail": req.rail as i32
     }))
-  .send()
-  .await?
-  .json::<Response<Option<RecordResult>>>()
-  .await?;
+    .send()
+    .await
+    .map_err(|_| format!("CMES(insert_at_spi): 请检查网络状态!"))?
+    .json::<Response<Option<RecordResult>>>()
+    .await?;
   match (response.success, response.result) {
     (true, Some(res)) if res.success() => Ok(res.result),
     (true, Some(res)) => Err(res.to_str()?.into()),
