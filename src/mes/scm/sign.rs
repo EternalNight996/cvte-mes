@@ -1,8 +1,9 @@
+#![allow(unused)]
 use e_utils::chrono::Utc;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue, CONTENT_TYPE};
 use serde_json::json;
 use std::collections::BTreeMap;
-
+#[derive(Debug, Clone)]
 pub struct DefaultSignSDK {}
 impl DefaultSignSDK {
   // 常量定义

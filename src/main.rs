@@ -1,7 +1,7 @@
 use cvte_mes::input::api;
 use cvte_mes::input::Opts;
+use e_utils::cmd::CmdResult;
 use e_utils::AnyResult;
-use e_utils::{cmd::CmdResult, Result};
 use serde_json::Value;
 
 #[tokio::main]
