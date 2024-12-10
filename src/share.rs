@@ -1,11 +1,6 @@
-use std::{fs::File, io::Write as _, path::Path};
-
 use e_utils::fs::AutoPath as _;
-
-/// 系统ROOT
-pub const SYSTEM_WIN32: &'static str = "C:\\windows\\system32";
-///
 use e_utils::AnyResult;
+use std::{fs::File, io::Write as _, path::Path};
 
 /// 写入bytes
 pub fn write_bytes_file(path: impl AsRef<Path>, data: &[u8]) -> AnyResult<()> {

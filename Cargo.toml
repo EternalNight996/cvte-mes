@@ -13,7 +13,7 @@ strum = { version = "0.26", features = ["derive"] }
 serde = "1"
 serde_json = "1"
 structopt = { version = "0.3", optional = true }
-e-utils = { version = "0.4", path = "../e-utils", features = [
+e-utils = { version = "0.4", features = [
   "cmd",
   "fs",
   "parse",
@@ -26,23 +26,24 @@ md5 = "0.7"
 
 [dev-dependencies]
 cvte-mes = { path = "./", features = ["input-api"] }
-e-utils = { version = "0.4", path = "../e-utils", features = ["cmd", "fs"] }
-e-log = { version = "0.2", path = "../e-log", features = ["log"] }
+e-utils = { version = "0.4", features = ["cmd", "fs"] }
+e-log = { version = "0.2", features = ["log"] }
 
 [package]
 name = "cvte-mes"
 version = "0.1.0"
-authors = [
-  "Eternal Night <EternalNight996@gmail.com, EternalNightYeah2@yeah.net>",
-]
+description = "源控MES系统接口"
+authors = ["Eternal(梦游) <EternalNightYeah2@yeah.net>"]
 edition = "2021"
 rust-version = "1.80.0"
-license-file = "E-LICENSE"
+license-file = "LICENSE"
+readme = "README.md"
 homepage = "https://gitee.com/eternalnight996"
-categories = ["gui", "network-programming"]
-description = "MII - Machine Internal Inspection"
+categories = []
 documentation = "https://docs.rs"
-keywords = ["gui", "e-", "heg"]
+include = ["src/", "*.md", "LICENSE", "Cargo.toml", "COPYRIGHT"]
+keywords = ["e-", "mes"]
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [package.metadata.docs.rs]
 rustdoc-args = ["--cfg", "doc_cfg"]
