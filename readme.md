@@ -3,7 +3,7 @@
 # 例子
 cargo run -- --help
 # 打包包含所有 API
-cargo build --release --features build-all
+cargo build --release --features input-api
 ```
 # CMES Example
 ```sh
