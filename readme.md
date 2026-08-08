@@ -30,3 +30,19 @@ cargo run -- --api CMES --task TestScan:SaveProduceTestByAutoTest --args '"{\"lo
 
 
 # SCM Example
+```sh
+# 查询SCM工单信息（文档：CVTE_SCM_WIP）
+cargo run -- --api SCM --task SCM:MoFactory --setting '{"gateway":"https://itgw-sit.cvte.com/env-101/scm/scmwip/gw-wip","apikey":"<网关颁发的应用ID>","api_secret":"<网关颁发的密钥>"}' --args '{"lineLotNumber":"HEG-SKZBU23070075"}'
+
+# 查询SCM投料单信息
+cargo run -- --api SCM --task SCM:ReqCommon --setting '{"gateway":"https://itgw-sit.cvte.com/env-101/scm/scmwip/gw-wip","apikey":"<应用ID>","api_secret":"<密钥>"}' --args '{"lineLotNumberList":["HEG-SKZBU23070075"]}'
+```
+
+# ItAPI Example
+```sh
+# 批量查询 CPLM 生产文件（文档：获取生产文件和软件信息表接口信息）
+cargo run -- --api ItAPI --task ItAPI:BatchProdDocs --setting '{"base_url":"https://itapi-portal.cvte.com","apikey":"<可选>"}' --args '[{"prodNumber":"001.001.0034469","productName":"P22MB-BO1053B-M","docType":"ALL"}]'
+
+# 根据生产批次ID/编号查询软件信息表
+cargo run -- --api ItAPI --task ItAPI:SoftInfoListV2 --setting '{"base_url":"https://itapi-portal.cvte.com","apikey":"<可选>"}' --args '{"lotNumbers":["38"],"moLineIds":["74"]}'
+```

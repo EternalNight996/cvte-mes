@@ -4,7 +4,7 @@ use e_utils::AnyResult;
 use super::{Cfg, Response};
 
 /// # 获取Token
-/// ```
+/// ```json
 /// 密码加密处理
 /// 账号不带@的用Base64加密，否则用MD5加密
 /// 测试账号
@@ -16,7 +16,7 @@ use super::{Cfg, Response};
 /// ```
 ///
 /// # 请求成功，登录失败，success=false，error返回错误信息
-/// ```
+/// ```json
 /// {
 ///     "result": null,
 ///     "targetUrl": null,

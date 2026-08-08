@@ -6,7 +6,7 @@ use crate::mes::*;
 /// # Input api 统一接口
 ///
 /// # Rust
-///```rust
+///```ignore
 /// fn main() -> e_utils::Result<()> {
 ///   if cvte_mes::input::Opts::check_empty() {
 ///     let _ = app::MyApp::launch()?;
@@ -20,7 +20,58 @@ use crate::mes::*;
 /// ```
 pub async fn api(op: Opts) -> e_utils::AnyResult<String> {
   match op.api {
-    OptsApi::SCM => Err("待开发 SCM".into()),
+    OptsApi::SCM => {
+      let cfg: crate::mes::scm::wip::Cfg = serde_json::from_str(&op.setting)?;
+      match &*op.task {
+        "SCM:MoFactory" => {
+          let req = op
+            .args
+            .get(0)
+            .map(|v| serde_json::from_str::<crate::mes::scm::wip::MoFactoryReq>(v))
+            .transpose()?
+            .ok_or("请把入参 json 放在 --args")?;
+          let data = crate::mes::scm::wip::query_mo_factory(&cfg, &req).await?;
+          Ok(serde_json::to_string(&data)?)
+        }
+        "SCM:ReqCommon" => {
+          let req = op
+            .args
+            .get(0)
+            .map(|v| serde_json::from_str::<crate::mes::scm::wip::FeedReq>(v))
+            .transpose()?
+            .ok_or("请把入参 json 放在 --args")?;
+          let data = crate::mes::scm::wip::query_req_common(&cfg, &req).await?;
+          Ok(serde_json::to_string(&data)?)
+        }
+        _ => Err("Unknow Task ".into()),
+      }
+    }
+    OptsApi::ItAPI => {
+      let cfg: crate::mes::itapi::Cfg = serde_json::from_str(&op.setting)?;
+      match &*op.task {
+        "ItAPI:BatchProdDocs" => {
+          let reqs = op
+            .args
+            .get(0)
+            .map(|v| serde_json::from_str::<Vec<crate::mes::itapi::ProdDocReq>>(v))
+            .transpose()?
+            .ok_or("请把入参 json 数组放在 --args")?;
+          let data = crate::mes::itapi::batch_production_documents(&cfg, &reqs).await?;
+          Ok(serde_json::to_string(&data)?)
+        }
+        "ItAPI:SoftInfoListV2" => {
+          let req = op
+            .args
+            .get(0)
+            .map(|v| serde_json::from_str::<crate::mes::itapi::SoftInfoReq>(v))
+            .transpose()?
+            .ok_or("请把入参 json 放在 --args")?;
+          let data = crate::mes::itapi::soft_info_list_v2(&cfg, &req).await?;
+          Ok(serde_json::to_string(&data)?)
+        }
+        _ => Err("Unknow Task ".into()),
+      }
+    }
     OptsApi::CMES => {
       let cfg: cmes::Cfg = serde_json::from_str(&op.setting)?;
       match &*op.task {

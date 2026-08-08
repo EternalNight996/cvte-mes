@@ -21,7 +21,7 @@ e-utils = { version = "0.4", features = [
   "base64",
 ] }
 tokio = { version = "1", features = ["full"] }
-reqwest = { version = "0.12", features = ["json"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 md5 = "0.7"
 
 [dev-dependencies]

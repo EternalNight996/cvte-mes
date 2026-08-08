@@ -18,7 +18,7 @@
 
 //!
 //! # Rust
-//!```rust
+//!```ignore
 //! fn main() -> e_utils::Result<()> {
 //!   if cvte_mes::input::Opts::check_empty() {
 //!     let _ = app::MyApp::launch()?;

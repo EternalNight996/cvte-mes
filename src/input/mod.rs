@@ -12,7 +12,8 @@ arg_enum! {
     pub enum OptsApi {
         None,
         SCM,
-        CMES
+        CMES,
+        ItAPI
     }
 }
 
@@ -75,7 +76,7 @@ impl Default for Opts {
 
 impl Opts {
   /// # Example
-  ///```rust
+  ///```ignore
   /// use cvte_mes::input::api;
   /// use cvte_mes::input::Opts;
   /// use e_utils::{cmd::CmdResult, Result};

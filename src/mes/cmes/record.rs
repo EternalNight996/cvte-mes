@@ -59,7 +59,7 @@ define_enum! {
 }
 
 /// # 序列扫描过站
-/// ```
+/// ```json
 /// 请求头key
 /// 测试:cmes_test_info
 /// uat:cmes_uat_info
@@ -108,7 +108,7 @@ define_enum! {
 ///    "unAuthorizedRequest": false,
 ///    "__abp": true
 ///  }
-///   ```
+///   ```json
 pub async fn insert_at_spi<'a>(cfg: &Cfg, token: &str, req: InsertAtSpiReq<'a>) -> e_utils::AnyResult<String> {
   let url = format!("{}/api/services/feed/FeedSnRecord/InsertAtSpi", cfg.prodUrl);
   let headers = HeaderMap::from_iter([header(&cfg.tokenName, token)?, header("Content-Type", "application/json")?]);

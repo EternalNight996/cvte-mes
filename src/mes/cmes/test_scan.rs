@@ -6,7 +6,7 @@ use serde_json::json;
 use super::{header, Cfg, ErrorResultData, Response};
 
 /// # 判断测试工步
-/// ```
+/// ```json
 /// 请求头key
 /// 测试:cmes_test_info
 /// uat:cmes_uat_info
@@ -18,7 +18,7 @@ use super::{header, Cfg, ErrorResultData, Response};
 /// ```
 ///
 /// #校验异常
-/// ```
+/// ```json
 /// {
 ///   "result": {
 ///       "isSuccess": false,
@@ -90,7 +90,7 @@ pub struct SaveProduceTestByAutoTestReq<'a> {
   pub testItem: &'a str,
 }
 /// # 保存测试结果
-/// ```
+/// ```json
 /// 请求头key
 /// 测试:cmes_test_info
 /// uat:cmes_uat_info
@@ -102,7 +102,7 @@ pub struct SaveProduceTestByAutoTestReq<'a> {
 /// ```
 ///
 /// #校验异常
-/// ```
+/// ```json
 /// {
 ///   "result": {
 ///       "isSuccess": false,
@@ -221,7 +221,7 @@ impl GetInfoBySnRes {
   }
 }
 /// # 根据条码获取批次
-/// ```
+/// ```text
 /// 请求头key
 /// 测试:cmes_test_info
 /// uat:cmes_uat_info
@@ -233,7 +233,7 @@ impl GetInfoBySnRes {
 /// ```
 ///
 /// #校验异常
-/// ```
+/// ```json
 /// {
 ///   "result": {
 ///       "isSuccess": false,
@@ -315,7 +315,7 @@ pub struct GetProduceDetailsReq<'a> {
 }
 
 /// # 查询测试项结果
-/// ```
+/// ```json
 /// 请求头key
 /// 测试:cmes_test_info
 /// uat:cmes_uat_info
