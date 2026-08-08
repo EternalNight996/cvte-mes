@@ -42,11 +42,17 @@ mod r#type {
   /// 登录响应结构体
   #[derive(Deserialize, Debug)]
   pub struct Response<T: Default> {
+    #[serde(default)]
     pub result: T,
+    #[serde(default)]
     pub targetUrl: Option<String>,
+    #[serde(default)]
     pub success: bool,
+    #[serde(default)]
     pub error: Option<Error>,
+    #[serde(default)]
     pub unAuthorizedRequest: bool,
+    #[serde(default)]
     pub __abp: bool,
   }
   //   /// 结果类型枚举
@@ -60,9 +66,13 @@ mod r#type {
   /// 错误信息结构体
   #[derive(Deserialize, Debug, Serialize, Default)]
   pub struct Error {
+    #[serde(default)]
     pub code: i32,
+    #[serde(default)]
     pub message: String,
+    #[serde(default)]
     pub details: Option<String>,
+    #[serde(default)]
     pub validation_errors: Option<Vec<String>>,
   }
   impl Error {
@@ -73,8 +83,11 @@ mod r#type {
   /// 错误信息结构体
   #[derive(Deserialize, Serialize, Debug, Default)]
   pub struct ErrorResultData {
+    #[serde(default)]
     pub isSuccess: bool,
+    #[serde(default)]
     pub code: String,
+    #[serde(default)]
     pub msg: String,
     #[serde(default)]
     pub data: Value,

@@ -46,3 +46,31 @@ cargo run -- --api ItAPI --task ItAPI:BatchProdDocs --setting '{"base_url":"http
 # 根据生产批次ID/编号查询软件信息表
 cargo run -- --api ItAPI --task ItAPI:SoftInfoListV2 --setting '{"base_url":"https://itapi-portal.cvte.com","apikey":"<可选>"}' --args '{"lotNumbers":["38"],"moLineIds":["74"]}'
 ```
+
+# 接口总览（cvte-mes）
+
+| 系统 | 模块 | 接口（CLI task） | 说明 |
+|------|------|------------------|------|
+| CMES | `mes::cmes` | `User:CreateToken` | 登录 |
+| CMES | `mes::cmes` | `TestScan:CheckLotSnCode` | SN 校验过站 |
+| CMES | `mes::cmes` | `TestScan:GetInfoBySn` | 根据 SN 获取批次信息 |
+| CMES | `mes::cmes` | `TestScan:SaveProduceTestByAutoTest` | 保存测试结果（报工） |
+| CMES | `mes::cmes` | `TestScan:GetProduceDetails` | 查询测试项结果 |
+| CMES | `mes::cmes` | `Record:InsertAtSpi` | 序列扫描过站 |
+| SCM | `mes::scm::wip` | `SCM:MoFactory` | 查询工单信息 |
+| SCM | `mes::scm::wip` | `SCM:ReqCommon` | 查询投料单信息 |
+| ItAPI | `mes::itapi` | `ItAPI:BatchProdDocs` | 批量查询 CPLM 生产文件 |
+| ItAPI | `mes::itapi` | `ItAPI:SoftInfoListV2` | 查询软件信息表 |
+| 通用 | `mes::mac` | 库函数 `query_macs_by_sn` | SN→MAC 绑定查询（防混料，兼容 CMES/ItAPI 鉴权） |
+
+# 同步调用（blocking）
+
+GUI 等不便引入 async 运行时的调用方可启用 `blocking` feature：
+
+```toml
+cvte-mes = { git = "https://gitee.com/eternalnight996/cvte-mes.git", features = ["blocking"] }
+```
+
+```rust
+let macs = cvte_mes::blocking::mac_query_by_sn(&mac_cfg, None, "SN12345678")?;
+```

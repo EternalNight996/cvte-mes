@@ -6,6 +6,7 @@ proc-macro = false
 
 [features]
 input-api = ["structopt"]
+blocking = []
 default = []
 
 [dependencies]

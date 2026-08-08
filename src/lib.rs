@@ -40,6 +40,9 @@ mod macros;
 pub mod input;
 /// MES
 pub mod mes;
+/// 同步（阻塞）调用封装：为不便引入 async 运行时的调用方（如 egui GUI）提供
+#[cfg(feature = "blocking")]
+pub mod blocking;
 /// Share
 #[path = "./share.rs"]
 pub mod share;
