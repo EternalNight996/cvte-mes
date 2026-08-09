@@ -45,6 +45,9 @@ cargo run -- --api ItAPI --task ItAPI:BatchProdDocs --setting '{"base_url":"http
 
 # 根据生产批次ID/编号查询软件信息表
 cargo run -- --api ItAPI --task ItAPI:SoftInfoListV2 --setting '{"base_url":"https://itapi-portal.cvte.com","apikey":"<可选>"}' --args '{"lotNumbers":["38"],"moLineIds":["74"]}'
+
+# 联调：按 SN 查询绑定 MAC（ItAPI apikey 鉴权；setting 用 MacCfg）
+cargo run -- --api ItAPI --task ItAPI:MacQuery --setting '{"query_url":"https://.../GetMacBySn","station_code":"ZS220","apikey":"<应用ID>"}' --args 'SN12345678'
 ```
 
 # 接口总览（cvte-mes）

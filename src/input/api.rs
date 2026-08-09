@@ -69,6 +69,13 @@ pub async fn api(op: Opts) -> e_utils::AnyResult<String> {
           let data = crate::mes::itapi::soft_info_list_v2(&cfg, &req).await?;
           Ok(serde_json::to_string(&data)?)
         }
+        "ItAPI:MacQuery" => {
+          // setting 用 mes::mac::MacCfg（query_url/station_code/apikey）
+          let cfg: crate::mes::mac::MacCfg = serde_json::from_str(&op.setting)?;
+          let sn = op.args.get(0).ok_or("请把 SN 放在 --args")?;
+          let data = crate::mes::mac::query_macs_by_sn(&cfg, None, sn).await?;
+          Ok(serde_json::to_string(&data)?)
+        }
         _ => Err("Unknow Task ".into()),
       }
     }
