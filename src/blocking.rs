@@ -96,3 +96,67 @@ pub fn itapi_soft_info_list_v2(
 ) -> AnyResult<serde_json::Value> {
   rt().block_on(itapi::soft_info_list_v2(cfg, req))
 }
+
+/// 通用 POST JSON（可选 apikey 鉴权头），返回响应 JSON（ItAPI 类接口联调/报公用）
+pub fn http_post_json(
+  url: &str,
+  apikey: &str,
+  body: &serde_json::Value,
+) -> AnyResult<serde_json::Value> {
+  rt().block_on(async {
+    let mut builder = reqwest::Client::new()
+      .post(url)
+      .header("Content-Type", "application/json");
+    if !apikey.is_empty() {
+      builder = builder.header("apikey", apikey);
+    }
+    let text = builder
+      .json(body)
+      .send()
+      .await
+      .map_err(|e| format!("HTTP POST 网络异常: {url} ({e})"))?
+      .json::<serde_json::Value>()
+      .await
+      .map_err(|e| format!("HTTP POST 响应解析失败: {e}"))?;
+    Ok(text)
+  })
+}
+
+/// CMES 报工：保存防混料 MAC 校验结果（登录 → SaveProduceTestByAutoTest）
+/// `testItem` 为 MAC 名称列表（如 "WIFI MAC,LAN MAC"），`keyInfo` 为 {name,value} JSON
+pub fn cmes_report_mac_result(
+  cfg: &cmes::Cfg,
+  sn: &str,
+  is_pass: bool,
+  macs: &[mac::MacBinding],
+  worker_no: &str,
+) -> AnyResult<String> {
+  rt().block_on(async {
+    let token = cmes::login::login(cfg).await?;
+    let now = e_utils::chrono::Local::now()
+      .format("%Y-%m-%d %H:%M:%S")
+      .to_string();
+    let macs_json: Vec<serde_json::Value> = macs
+      .iter()
+      .map(|m| serde_json::json!({ "name": m.name, "value": m.value }))
+      .collect();
+    let key_info = serde_json::to_string(&macs_json)?;
+    let test_item = macs
+      .iter()
+      .map(|m| m.name.as_str())
+      .collect::<Vec<_>>()
+      .join(",");
+    let req = cmes::test_scan::SaveProduceTestByAutoTestReq {
+      lotSnCode: sn,
+      isPass: is_pass,
+      testTime: &now,
+      workerNo: worker_no,
+      keyInfo: &key_info,
+      autoTestVersion: "cvte-mes",
+      testStartDate: &now,
+      testEndDate: &now,
+      testItem: &test_item,
+    };
+    cmes::test_scan::save_produce_test_by_auto_test(cfg, &token, &req).await
+  })
+}
