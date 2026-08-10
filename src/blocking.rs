@@ -85,7 +85,7 @@ pub fn scm_req_common(
 pub fn itapi_batch_production_documents(
   cfg: &itapi::Cfg,
   reqs: &[itapi::ProdDocReq],
-) -> AnyResult<serde_json::Value> {
+) -> AnyResult<itapi::ProdDocResp> {
   rt().block_on(itapi::batch_production_documents(cfg, reqs))
 }
 
@@ -93,7 +93,7 @@ pub fn itapi_batch_production_documents(
 pub fn itapi_soft_info_list_v2(
   cfg: &itapi::Cfg,
   req: &itapi::SoftInfoReq,
-) -> AnyResult<serde_json::Value> {
+) -> AnyResult<itapi::SoftInfoResp> {
   rt().block_on(itapi::soft_info_list_v2(cfg, req))
 }
 

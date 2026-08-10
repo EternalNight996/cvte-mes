@@ -42,10 +42,27 @@ pub fn norm_mac(s: &str) -> String {
   s.trim().to_uppercase().replace([':', '-', '.', ' '], "")
 }
 
+/// ItAPI style envelope: {status, message, data}
+#[derive(Deserialize, Debug, Default)]
+struct ItapiResp<T> {
+  #[serde(default)]
+  status: Option<String>,
+  #[serde(default)]
+  message: Option<String>,
+  #[serde(default)]
+  data: Option<T>,
+}
+
 fn parse_macs(text: &str) -> AnyResult<Vec<MacBinding>> {
   // 优先直接数组 [{name, value}]
   if let Ok(macs) = serde_json::from_str::<Vec<MacBinding>>(text) {
     return Ok(macs);
+  }
+  // ItAPI envelope {status, message, data:[...]}
+  if let Ok(env) = serde_json::from_str::<ItapiResp<Vec<MacBinding>>>(text) {
+    if let Some(data) = env.data {
+      return Ok(data);
+    }
   }
   // 其次 CMES 信封 {success, result:{isSuccess, msg, data:[...]}}
   if let Ok(env) = serde_json::from_str::<Response<Option<ErrorResultData>>>(text) {
@@ -161,5 +178,14 @@ mod tests {
     assert_eq!(macs.len(), 1);
     assert_eq!(macs[0].name, "LAN MAC");
     assert_eq!(macs[0].value, "11-22-33-44-55-66");
+  }
+
+  #[test]
+  fn parse_itapi_envelope() {
+    let text = r#"{"status":"0","message":"success","data":[{"name":"WIFI MAC","value":"AA:BB:CC:DD:EE:01"}]}"#;
+    let macs = parse_macs(text).unwrap();
+    assert_eq!(macs.len(), 1);
+    assert_eq!(macs[0].name, "WIFI MAC");
+    assert_eq!(macs[0].value, "AA:BB:CC:DD:EE:01");
   }
 }
