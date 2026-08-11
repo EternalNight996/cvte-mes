@@ -45,9 +45,13 @@ pub fn norm_mac(s: &str) -> String {
 /// ItAPI style envelope: {status, message, data}
 #[derive(Deserialize, Debug, Default)]
 struct ItapiResp<T> {
+  /// 状态码（信封保留字段；解析只消费 data/message，见 ItAPI 约定）
   #[serde(default)]
+  #[allow(dead_code)]
   status: Option<String>,
+  /// 消息（信封保留字段；解析只消费 data，见 ItAPI 约定）
   #[serde(default)]
+  #[allow(dead_code)]
   message: Option<String>,
   #[serde(default)]
   data: Option<T>,
