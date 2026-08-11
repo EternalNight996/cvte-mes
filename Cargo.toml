@@ -22,7 +22,9 @@ e-utils = { version = "0.4", features = [
   "base64",
 ] }
 tokio = { version = "1", features = ["full"] }
-reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+# Ubuntu18 兼容:rustls-tls 走 aws-lc(需 CMake>=3.12,18.04 只有 3.10)构建失败;
+# 改 native-tls 用系统 openssl(18.04 自带 1.1),HTTPS 能力不变
+reqwest = { version = "0.12", default-features = false, features = ["json", "native-tls"] }
 md5 = "0.7"
 
 [dev-dependencies]
