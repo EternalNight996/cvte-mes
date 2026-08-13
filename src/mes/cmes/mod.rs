@@ -4,6 +4,7 @@ use std::str::FromStr as _;
 use e_utils::AnyRes as _;
 pub use r#type::*;
 use reqwest::header::{HeaderName, HeaderValue};
+pub mod feed_sheet;
 pub mod login;
 pub mod record;
 pub mod test_scan;
