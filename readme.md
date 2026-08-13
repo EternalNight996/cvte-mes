@@ -77,3 +77,24 @@ cvte-mes = { git = "https://gitee.com/eternalnight996/cvte-mes.git", features = 
 ```rust
 let macs = cvte_mes::blocking::mac_query_by_sn(&mac_cfg, None, "SN12345678")?;
 ```
+
+# Linux 构建（Kylin V10 / UOS V20 / Ubuntu 18.04+）
+
+```bash
+# 1. 系统依赖（native-tls 走系统 OpenSSL，避免 rustls-aws-lc 需 CMake≥3.12 的构建限制）
+sudo apt install -y libssl-dev pkg-config
+
+# 2. 构建/测试（rust-version ≥ 1.85）
+rustup default stable
+cargo build --release
+cargo test
+```
+
+- **reqwest 0.13 + native-tls**：HTTPS 走系统 openssl（Ubuntu18.04 自带 1.1，Kylin/UOS 自带），无需额外 TLS 配置；
+- 交叉编译说明：Windows 上 `cargo check --target x86_64-unknown-linux-gnu` 会停在 `openssl-sys`（找不到 Linux 系统库），属正常限制；Rust 代码与纯 Rust 依赖已通过 Linux target 编译验证，请在 Linux 机器上完成最终构建。
+
+# 投料单接口（2026-08-14 用户提供）
+
+| 模块 | 函数 | 说明 |
+|------|------|------|
+| CMES | `mes::cmes::feed_sheet::feed_sheet_list` | `GetFeedSheetList` 查询投料单（moLotNo 传批次号或 SN，token 头鉴权，parentId 参数）；PackPrint 后端建箱取每箱数量 |

@@ -1,0 +1,9 @@
+# 与 gpu-test / etest 同栈: 国内 crates 镜像(参考 gpu-test/.cargo/config.toml)
+[source.crates-io]
+replace-with = "rsproxy-sparse"
+
+[source.rsproxy-sparse]
+registry = "sparse+https://rsproxy.cn/index/"
+
+[net]
+git-fetch-with-cli = true
