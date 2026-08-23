@@ -66,7 +66,7 @@ pub async fn feed_sheet_list(
 ) -> e_utils::AnyResult<Vec<FeedSheetItem>> {
   let url = format!("{}/api/services/app/ScanHead/GetFeedSheetList", front_url);
   let headers = header::HeaderMap::from_iter([header(&cfg.tokenName, token)?]);
-  let response = reqwest::Client::new()
+  let response = super::client()
     .get(url)
     .headers(headers)
     .query(&[

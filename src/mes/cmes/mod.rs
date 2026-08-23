@@ -4,6 +4,15 @@ use std::str::FromStr as _;
 use e_utils::AnyRes as _;
 pub use r#type::*;
 use reqwest::header::{HeaderName, HeaderValue};
+use std::time::Duration;
+
+/// 带超时的 HTTP 客户端（默认 10s，避免 MES 服务器不可达时卡死工位流程）
+pub fn client() -> reqwest::Client {
+  reqwest::Client::builder()
+    .timeout(Duration::from_secs(10))
+    .build()
+    .expect("构造 reqwest client 失败")
+}
 pub mod feed_sheet;
 pub mod login;
 pub mod record;

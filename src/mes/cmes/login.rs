@@ -48,7 +48,7 @@ pub async fn login(cfg: &Cfg) -> AnyResult<String> {
   } else {
     e_utils::algorithm::base64::encode(&cfg.passWord)
   };
-  let response = reqwest::Client::new()
+  let response = super::client()
     .get(url)
     .query(&[("Email", &cfg.userName), ("Pwd", &passwd)])
     .send()

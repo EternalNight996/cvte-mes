@@ -48,7 +48,7 @@ use super::{header, Cfg, ErrorResultData, Response};
 pub async fn check_lot_sn_code(cfg: &Cfg, token: &str, lot_sn_code: &str) -> e_utils::AnyResult<String> {
   let url = format!("{}/api/services/test/TestScan/CheckLotSnCode", cfg.prodUrl);
   let headers = header::HeaderMap::from_iter([header(&cfg.tokenName, token)?, header("Content-Type", "application/json")?]);
-  let response = reqwest::Client::new()
+  let response = super::client()
     .post(url)
     .headers(headers)
     .json(&json!( {
@@ -131,7 +131,7 @@ pub struct SaveProduceTestByAutoTestReq<'a> {
 pub async fn save_produce_test_by_auto_test<'a>(cfg: &Cfg, token: &str, req: &SaveProduceTestByAutoTestReq<'a>) -> e_utils::AnyResult<String> {
   let url = format!("{}/api/services/test/TestScan/SaveProduceTestByAutoTest", cfg.prodUrl);
   let headers = header::HeaderMap::from_iter([header(&cfg.tokenName, token)?, header("Content-Type", "application/json")?]);
-  let response = reqwest::Client::new()
+  let response = super::client()
     .post(url)
     .headers(headers)
     .json(&json!( {
@@ -289,7 +289,7 @@ impl GetInfoBySnRes {
 pub async fn get_info_by_sn(cfg: &Cfg, token: &str, req: &str) -> e_utils::AnyResult<GetInfoBySnRes> {
   let url = format!("{}/api/services/test/TestScan/GetInfoBySn", cfg.prodUrl);
   let headers = header::HeaderMap::from_iter([header(&cfg.tokenName, token)?]);
-  let response = reqwest::Client::new()
+  let response = super::client()
     .get(url)
     .headers(headers)
     .query(&[("code", req)])
@@ -330,7 +330,7 @@ pub struct GetProduceDetailsReq<'a> {
 pub async fn get_produce_details<'a>(cfg: &Cfg, token: &str, req: &GetProduceDetailsReq<'a>) -> e_utils::AnyResult<String> {
   let url = format!("{}/api/services/test/TestScan/GetProduceDetails", cfg.prodUrl);
   let headers = header::HeaderMap::from_iter([header(&cfg.tokenName, token)?]);
-  let response = reqwest::Client::new()
+  let response = super::client()
     .post(url)
     .headers(headers)
     .query(&[("produceTestId", req.produceTestId), ("maxResultCount", req.maxResultCount)])

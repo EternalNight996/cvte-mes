@@ -112,7 +112,7 @@ define_enum! {
 pub async fn insert_at_spi<'a>(cfg: &Cfg, token: &str, req: InsertAtSpiReq<'a>) -> e_utils::AnyResult<String> {
   let url = format!("{}/api/services/feed/FeedSnRecord/InsertAtSpi", cfg.prodUrl);
   let headers = HeaderMap::from_iter([header(&cfg.tokenName, token)?, header("Content-Type", "application/json")?]);
-  let response = reqwest::Client::new()
+  let response = super::client()
     .post(url)
     .headers(headers)
     .json(&json!( {
