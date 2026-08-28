@@ -23,9 +23,11 @@ e-utils = { version = "0.4", features = [
 ] }
 tokio = { version = "1", features = ["full"] }
 # reqwest 0.13（2026-08 最新）：rust-version 需 ≥1.85（同步见 package.rust-version）
-# TLS 用 native-tls（系统 openssl：Ubuntu18.04 自带 1.1、Kylin V10 / UOS V20 自带），
-# 避免 rustls-aws-lc（需 CMake≥3.12，Ubuntu18.04 仅 3.10 构建失败）—— 见 README「Linux 构建」
-reqwest = { version = "0.13", default-features = false, features = ["json", "query", "native-tls"] }
+# TLS 用 rustls + ring（纯 Rust，无需系统 OpenSSL/CMake）：既保留 https（itapi/scm/mac 走 https://），
+# 又让 cargo-zigbuild 交叉编译 Linux 不再依赖 openssl-sys（对齐 gpu-test 纯 Rust 跨平台）。
+# 注：reqwest 的 rustls 默认走 aws-lc-rs（需 CMake），故用 rustls-no-provider + 直接依赖 rustls/ring 提供 provider。
+reqwest = { version = "0.13", default-features = false, features = ["json", "query", "rustls-no-provider"] }
+rustls = { version = "0.23", default-features = false, features = ["ring"] }
 md5 = "0.8"
 
 [dev-dependencies]
@@ -35,7 +37,7 @@ e-log = { version = "0.4.2", features = ["log"] }
 
 [package]
 name = "cvte-mes"
-version = "0.1.0"
+version = "0.1.1"
 description = "源控MES系统接口"
 authors = ["Eternal(梦游) <EternalNightYeah2@yeah.net>"]
 edition = "2021"
