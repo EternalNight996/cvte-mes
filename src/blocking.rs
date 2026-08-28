@@ -41,6 +41,19 @@ pub fn cmes_save_produce_test<'a>(
   rt().block_on(cmes::test_scan::save_produce_test_by_auto_test(cfg, token, req))
 }
 
+/// 高复用：按 SN 获取批次号（登录→GetInfoBySn，阻塞）
+pub fn cmes_mo_lot_no(cfg: &cmes::Cfg, sn: &str) -> AnyResult<String> {
+  rt().block_on(cmes::mo_lot_no(cfg, sn))
+}
+
+/// 高复用：MES 报工（登录→SN校验→保存结果，阻塞）
+pub fn cmes_report<'a>(
+  cfg: &cmes::Cfg,
+  req: &cmes::test_scan::SaveProduceTestByAutoTestReq<'a>,
+) -> AnyResult<String> {
+  rt().block_on(cmes::report(cfg, req))
+}
+
 /// 序列扫描过站（阻塞）
 pub fn cmes_insert_at_spi<'a>(
   cfg: &cmes::Cfg,

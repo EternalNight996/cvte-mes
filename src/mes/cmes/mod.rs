@@ -20,6 +20,22 @@ pub mod test_scan;
 pub fn header(k: &str, v: &str) -> e_utils::Result<(HeaderName, HeaderValue)> {
   Ok((HeaderName::from_str(k).any()?, HeaderValue::from_str(v).any()?))
 }
+
+/// 高复用：按 SN 获取批次号 moLotNo（登录 → GetInfoBySn；SN 支持 $ 分隔取左侧）
+pub async fn mo_lot_no(cfg: &Cfg, sn: &str) -> e_utils::AnyResult<String> {
+  let token = login::login(cfg).await?;
+  let code = sn.split('$').next().unwrap_or(sn);
+  let info = test_scan::get_info_by_sn(cfg, &token, code).await?;
+  Ok(info.moLotNo)
+}
+
+/// 高复用：MES 报工（登录 → SN 校验过站 CheckLotSnCode → 保存结果 SaveProduceTestByAutoTest）
+pub async fn report(cfg: &Cfg, req: &test_scan::SaveProduceTestByAutoTestReq<'_>) -> e_utils::AnyResult<String> {
+  let token = login::login(cfg).await?;
+  let code = req.lotSnCode.split('$').next().unwrap_or(req.lotSnCode);
+  test_scan::check_lot_sn_code(cfg, &token, code).await?;
+  test_scan::save_produce_test_by_auto_test(cfg, &token, req).await
+}
 mod r#type {
   use e_utils::AnyRes;
   use serde::{Deserialize, Serialize};
