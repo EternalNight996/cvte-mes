@@ -21,6 +21,7 @@
 //! let s = Session::new(Cfg::default());
 //! let rows = s.get_other_list_by_sn("http://xxx-pc-cmes.gz.cvte.cn/frontApi/prod", "SN001").await?;
 //! ```
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, SystemTime};
 
 use serde_json::Value;
@@ -58,6 +59,8 @@ pub struct Session {
   ttl: Duration,
   refresh_ahead: Duration,
   token: Mutex<Option<Cached>>,
+  /// 真实登录次数（缓存命中不增加）；供自检与可观测性使用
+  logins: AtomicUsize,
 }
 
 impl Session {
@@ -72,6 +75,7 @@ impl Session {
       ttl: Duration::from_secs(ttl_secs),
       refresh_ahead: Duration::from_secs(refresh_ahead_secs),
       token: Mutex::new(None),
+      logins: AtomicUsize::new(0),
     }
   }
   /// 配置引用
@@ -87,6 +91,7 @@ impl Session {
       }
     }
     let value = super::login::login(&self.cfg).await?;
+    self.logins.fetch_add(1, Ordering::SeqCst);
     *guard = Some(self.cache(value.clone()));
     Ok(value)
   }
@@ -95,8 +100,23 @@ impl Session {
     let mut guard = self.token.lock().await;
     *guard = None;
     let value = super::login::login(&self.cfg).await?;
+    self.logins.fetch_add(1, Ordering::SeqCst);
     *guard = Some(self.cache(value.clone()));
     Ok(value)
+  }
+  /// 已发生的真实登录次数（缓存命中不增加）
+  pub fn login_count(&self) -> usize {
+    self.logins.load(Ordering::SeqCst)
+  }
+  /// 注入一个已知 Token 与剩余有效期
+  ///
+  /// 用途：自检构造「Token 已失效」场景；或调用方从外部（磁盘/父进程）恢复会话缓存。
+  pub async fn seed_token(&self, value: String, ttl_secs: u64) {
+    let mut guard = self.token.lock().await;
+    *guard = Some(Cached {
+      value,
+      expires_at: SystemTime::now() + Duration::from_secs(ttl_secs),
+    });
   }
   /// 按《对接标准》发起 GET 并解析：自动带鉴权头；Token 失效时重取后最多重试一次
   pub async fn get_json(&self, url: &str, query: &[(&str, &str)]) -> e_utils::AnyResult<Value> {

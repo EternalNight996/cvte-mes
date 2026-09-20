@@ -46,3 +46,5 @@ pub mod blocking;
 /// Share
 #[path = "./share.rs"]
 pub mod share;
+/// 内置自检：用本地 mock 服务端验证会话层机制（不访问生产环境、无业务副作用）
+pub mod selftest;

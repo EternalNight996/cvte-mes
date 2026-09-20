@@ -153,6 +153,15 @@ pub async fn api(op: Opts) -> e_utils::AnyResult<String> {
           let req: cmes::test_scan::SaveProduceTestByAutoTestReq<'_> = serde_json::from_str(arg)?;
           cmes::report(&cfg, &req).await
         }
+        "SelfTest:Session" => {
+          let (all_pass, detail) = crate::selftest::run_all().await;
+          let text = serde_json::to_string_pretty(&detail)?;
+          if all_pass {
+            Ok(text)
+          } else {
+            Err(format!("自检未通过：{text}").into())
+          }
+        }
         "User:CreateToken" => cmes::login::login(&cfg).await,
         _ => Err("Unknow Task ".into()),
       }

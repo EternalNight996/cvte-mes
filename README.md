@@ -5,7 +5,7 @@
 </div>
 
 <div align="center">
-  📄 [MIT](LICENSE) · 📦 [crates.io](https://crates.io/crates/cvte-mes) · 📚 [docs.rs](https://docs.rs/cvte-mes) · 🌟 [Gitee](https://gitee.com/eternalnight996/cvte-mes) · 🧪 34 tests
+  📄 [MIT](LICENSE) · 📦 [crates.io](https://crates.io/crates/cvte-mes) · 📚 [docs.rs](https://docs.rs/cvte-mes) · 🌟 [Gitee](https://gitee.com/eternalnight996/cvte-mes) · 🧪 35 tests
 </div>
 
 <div align="center">简体中文 | <a href="README.en.md">English</a></div>
@@ -71,7 +71,7 @@ let comps = s.get_other_list_by_sn(front, "U23070429-0A03693")?;
 
 ```sh
 $ cargo test --lib
-running 34 tests
+running 35 tests
 test mes::cmes::feed_sheet::tests::item_from_json_picks_known_fields ... ok
 test mes::cmes::pack::tests::parse_other_items_reads_documented_fields ... ok
 test result: ok. 34 passed; 0 failed
@@ -152,7 +152,7 @@ cargo run -- --api ItAPI --task ItAPI:MacQuery --setting '{"query_url":"https://
 
 ```bat
 :: exe 查找顺序：scripts\cvte-mes.exe → target\release → target\debug
-cargo build --release --features input-api
+cargo build --release --features input-api,blocking
 copy target\release\cvte-mes.exe scripts\
 scripts\verify.bat
 ```
@@ -164,10 +164,29 @@ scripts\verify.bat
 
 ---
 
+### 内置自检（不依赖生产环境）
+
+脚本构造不出的场景——Token 缓存、并发只登录一次、401 自动重取并**最多重试一次**、HTTP 500 / 业务失败 / 非 JSON 的分层解析、blocking 同步路径——由程序内置自检覆盖：它在本机起一个 mock 服务端，**不访问生产、不产生业务副作用**。
+
+```bat
+cargo run --features input-api,blocking -- --api CMES --task SelfTest:Session
+```
+
+### 生产配置来源
+
+`scripts/gen_prod_cfg.py` 从 `etest.db` 的 `org_cvte_cmes` 表读取账号/域名，生成 `verify.prod.bat`（含明文凭据，已 gitignore）；`verify.bat` 检测到它存在会自动加载，换账号/换工厂不必改脚本本体：
+
+```sh
+python scripts/gen_prod_cfg.py --list                        # 列出候选配置
+python scripts/gen_prod_cfg.py --id 1 --sn <SN> --lot <LOT>  # 生成
+```
+
+---
+
 ## 🐧 Linux 构建（Kylin V10 / UOS V20 / Ubuntu 18.04+）
 
 ```bash
-cargo build --release --features input-api
+cargo build --release --features input-api,blocking
 ```
 
 > `input-api` 是 CLI 所需的 feature（`src/main.rs` 依赖 `cvte_mes::input`）；不带该 feature 构建 bin 会报 `could not find input in cvte_mes`。

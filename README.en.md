@@ -5,7 +5,7 @@
 </div>
 
 <div align="center">
-  📄 [MIT](LICENSE) · 📦 [crates.io](https://crates.io/crates/cvte-mes) · 📚 [docs.rs](https://docs.rs/cvte-mes) · 🌟 [Gitee](https://gitee.com/eternalnight996/cvte-mes) · 🧪 34 tests
+  📄 [MIT](LICENSE) · 📦 [crates.io](https://crates.io/crates/cvte-mes) · 📚 [docs.rs](https://docs.rs/cvte-mes) · 🌟 [Gitee](https://gitee.com/eternalnight996/cvte-mes) · 🧪 35 tests
 </div>
 
 <div align="center"><a href="README.md">简体中文</a> | English</div>
@@ -71,7 +71,7 @@ let comps = s.get_other_list_by_sn(front, "U23070429-0A03693")?;
 
 ```sh
 $ cargo test --lib
-running 34 tests
+running 35 tests
 test mes::cmes::feed_sheet::tests::item_from_json_picks_known_fields ... ok
 test mes::cmes::pack::tests::parse_other_items_reads_documented_fields ... ok
 test result: ok. 34 passed; 0 failed
@@ -152,7 +152,7 @@ Runs all 13 endpoints in one go and prints a colored PASS/FAIL table:
 
 ```bat
 :: exe lookup order: scripts\cvte-mes.exe -> target\release -> target\debug
-cargo build --release --features input-api
+cargo build --release --features input-api,blocking
 copy target\release\cvte-mes.exe scripts\
 scripts\verify.bat
 ```
@@ -164,10 +164,29 @@ scripts\verify.bat
 
 ---
 
+### Built-in self-test (no production access)
+
+Scenarios a script cannot construct — token cache, one login under concurrency, automatic re-login on 401 with **at most one retry**, layered parsing of HTTP 500 / business failure / non-JSON, and the blocking sync path — are covered by a built-in self-test: it starts a mock server on localhost and **never touches production or writes business data**.
+
+```bat
+cargo run --features input-api,blocking -- --api CMES --task SelfTest:Session
+```
+
+### Where the production config comes from
+
+`scripts/gen_prod_cfg.py` reads accounts/hosts from the `org_cvte_cmes` table in `etest.db` and writes `verify.prod.bat` (plaintext credentials, gitignored); `verify.bat` loads it automatically when present, so switching account or factory needs no edit to the script itself:
+
+```sh
+python scripts/gen_prod_cfg.py --list                        # list candidates
+python scripts/gen_prod_cfg.py --id 1 --sn <SN> --lot <LOT>  # generate
+```
+
+---
+
 ## 🐧 Linux build (Kylin V10 / UOS V20 / Ubuntu 18.04+)
 
 ```bash
-cargo build --release --features input-api
+cargo build --release --features input-api,blocking
 ```
 
 > `input-api` is the feature the CLI needs (`src/main.rs` uses `cvte_mes::input`); building the bin without it fails with `could not find input in cvte_mes`.
