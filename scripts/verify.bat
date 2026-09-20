@@ -127,15 +127,77 @@ echo %IDX%,ItAPI:MacQuery,ItAPI SN查MAC>"%RUNDIR%\%IDX%.tsv"
 REM ---------------- 写入用例（默认跳过） ----------------
 if "%RUN_WRITE%"=="1" call :write_cases
 
-REM ---------------- 渲染彩色表格 ----------------
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0_render.ps1" -RunDir "%RUNDIR%" -Title "cvte-mes 接口验证（通用模板）" -Env "%PROD_URL% / %SYS_URL%" -Account "%USER_NAME%"
+REM ---------------- 渲染彩色表格（结果同时落盘，防窗口误关后看不到） ----------------
+set "RESULT=%~dp0verify.result.txt"
+set "RC=0"
+where powershell >nul 2>&1
+if errorlevel 1 goto :plain
+
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0_render.ps1" -RunDir "%RUNDIR%" -Title "cvte-mes 接口验证（通用模板）" -Env "%PROD_URL% / %SYS_URL%" -Account "%USER_NAME%" -ResultPath "%RESULT%"
 set "RC=%ERRORLEVEL%"
+goto :reported
+
+:plain
+echo [WARN] 未找到 PowerShell，改用纯文本结果。
+call :plain_report > "%RESULT%" 2>&1
+type "%RESULT%"
+
+:reported
 echo 使用 exe：%EXE%
+echo 结果文件：%RESULT%
 echo 原始输出：%RUNDIR%
 echo.
-echo 按任意键关闭窗口...
-pause >nul
+echo 按任意键关闭窗口（结果已写入上面的 txt，窗口被误关也能查）...
+pause
 exit /b %RC%
+
+REM ---------------- PowerShell 不可用时的纯文本兜底 ----------------
+:plain_report
+setlocal enabledelayedexpansion
+echo ============ 结果（纯文本兜底）============
+set "PF=0"
+set "FF=0"
+for /l %%i in (1,1,%IDX%) do (
+  set "META="
+  set /p META=<"%RUNDIR%\%%i.tsv"
+  findstr /r /c:"status.: true" "%RUNDIR%\%%i.txt" >nul 2>&1
+  if errorlevel 1 (
+    set /a FF+=1
+    echo [FAIL] !META!
+  ) else (
+    set /a PF+=1
+    echo [PASS] !META!
+  )
+)
+echo 通过 !PF!   失败 !FF!
+set "FRC=0"
+if !FF! GTR 0 set "FRC=1"
+endlocal & set "RC=%FRC%"
+goto :eof
+
+REM ---------------- PowerShell 不可用时的纯文本兜底 ----------------
+:plain_report
+setlocal enabledelayedexpansion
+echo ============ 结果（纯文本兜底）============
+set "PF=0"
+set "FF=0"
+for /l %%i in (1,1,%IDX%) do (
+  set "META="
+  set /p META=<"%RUNDIR%\%%i.tsv"
+  findstr /r /c:"status.: true" "%RUNDIR%\%%i.txt" >nul 2>&1
+  if errorlevel 1 (
+    set /a FF+=1
+    echo [FAIL] !META!
+  ) else (
+    set /a PF+=1
+    echo [PASS] !META!
+  )
+)
+echo 通过 !PF!   失败 !FF!
+set "FRC=0"
+if !FF! GTR 0 set "FRC=1"
+endlocal & set "RC=%FRC%"
+goto :eof
 
 REM ---------------- 写入用例（真写 MES 数据，RUN_WRITE=1 才执行） ----------------
 :write_cases

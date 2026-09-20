@@ -1,16 +1,35 @@
 ﻿<#
   cvte-mes 验证结果渲染器（被 scripts\verify.bat / verify2.bat 调用）
   读取 <RunDir>\N.tsv（序号,接口,说明）与同序号 N.txt（exe 原始输出），
-  输出带颜色的 PASS/FAIL 表格。无凭据，可提交。
+  输出带颜色的 PASS/FAIL 表格，同时把同样的纯文本结果写到 -ResultPath
+  （窗口被误关 / 弹窗吃掉 pause 时，结果依然留在文件里可查）。
+  无凭据，可提交。
 #>
 param(
   [Parameter(Mandatory = $true)][string]$RunDir,
   [string]$Title = 'cvte-mes 接口验证',
   [string]$Env = '',
-  [string]$Account = ''
+  [string]$Account = '',
+  [string]$ResultPath = ''
 )
 
 try { [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false) } catch { }
+
+$script:lines = New-Object System.Collections.Generic.List[string]
+$script:buf = ''
+
+function Out-Line {
+  param([string]$Text, [string]$Color = 'Gray', [switch]$NoNewline)
+  if ($null -eq $Text) { $Text = '' }
+  if ($NoNewline) {
+    Write-Host $Text -ForegroundColor $Color -NoNewline
+    $script:buf += $Text
+  } else {
+    Write-Host $Text -ForegroundColor $Color
+    [void]$script:lines.Add($script:buf + $Text)
+    $script:buf = ''
+  }
+}
 
 function Get-DisplayWidth {
   param([string]$Text)
@@ -92,47 +111,52 @@ $err = @($rows | Where-Object { $_.Status -eq 'ERROR' }).Count
 $bar = '=' * $lineW
 $thin = '-' * $lineW
 
-Write-Host ''
-Write-Host $bar -ForegroundColor DarkGray
-Write-Host (' ' + $Title + '    ' + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss')) -ForegroundColor White
-if ($Env) { Write-Host (' 环境  ' + $Env) -ForegroundColor Gray }
-if ($Account) { Write-Host (' 账号  ' + $Account) -ForegroundColor Gray }
-Write-Host $bar -ForegroundColor DarkGray
-Write-Host ('  ' + (Pad-Right '#' $idxW) + ' ' + (Pad-Right '接口' $nameW) + ' ' + (Pad-Right '结果' $resW) + ' 说明') -ForegroundColor DarkCyan
-Write-Host $thin -ForegroundColor DarkGray
+Out-Line ''
+Out-Line $bar 'DarkGray'
+Out-Line (' ' + $Title + '    ' + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss')) 'White'
+if ($Env) { Out-Line (' 环境  ' + $Env) 'Gray' }
+if ($Account) { Out-Line (' 账号  ' + $Account) 'Gray' }
+Out-Line $bar 'DarkGray'
+Out-Line ('  ' + (Pad-Right '#' $idxW) + ' ' + (Pad-Right '接口' $nameW) + ' ' + (Pad-Right '结果' $resW) + ' 说明') 'DarkCyan'
+Out-Line $thin 'DarkGray'
 
 foreach ($r in $rows) {
   $color = switch ($r.Status) { 'PASS' { 'Green' } 'FAIL' { 'Red' } default { 'Yellow' } }
-  Write-Host ('  ' + (Pad-Right $r.Idx $idxW) + ' ' + (Pad-Right $r.Name $nameW) + ' ') -NoNewline
-  Write-Host (Pad-Right $r.Status $resW) -ForegroundColor $color -NoNewline
-  Write-Host (' ' + $r.Desc)
+  Out-Line ('  ' + (Pad-Right $r.Idx $idxW) + ' ' + (Pad-Right $r.Name $nameW) + ' ') -NoNewline
+  Out-Line (Pad-Right $r.Status $resW) $color -NoNewline
+  Out-Line (' ' + $r.Desc)
 }
 
-Write-Host $thin -ForegroundColor DarkGray
-Write-Host ('  通过 ') -NoNewline
-Write-Host ('{0}' -f $pass) -ForegroundColor Green -NoNewline
-Write-Host ('   失败 ') -NoNewline
-Write-Host ('{0}' -f $fail) -ForegroundColor Red -NoNewline
+Out-Line $thin 'DarkGray'
+Out-Line ('  通过 ') -NoNewline
+Out-Line ('{0}' -f $pass) 'Green' -NoNewline
+Out-Line ('   失败 ') -NoNewline
+Out-Line ('{0}' -f $fail) 'Red' -NoNewline
 if ($err -gt 0) {
-  Write-Host ('   异常 ') -NoNewline
-  Write-Host ('{0}' -f $err) -ForegroundColor Yellow -NoNewline
+  Out-Line ('   异常 ') -NoNewline
+  Out-Line ('{0}' -f $err) 'Yellow' -NoNewline
 }
 if ($null -ne $tMin -and $null -ne $tMax) {
-  Write-Host ('   耗时 {0:N1}s' -f (($tMax - $tMin).TotalSeconds)) -NoNewline
+  Out-Line ('   耗时 {0:N1}s' -f (($tMax - $tMin).TotalSeconds)) -NoNewline
 }
-Write-Host ''
-Write-Host $bar -ForegroundColor DarkGray
+Out-Line ''
+Out-Line $bar 'DarkGray'
 
 $failed = @($rows | Where-Object { $_.Status -ne 'PASS' -and $_.Detail })
 if ($failed.Count -gt 0) {
-  Write-Host ''
-  Write-Host ' 失败/异常详情' -ForegroundColor Red
+  Out-Line ''
+  Out-Line ' 失败/异常详情' 'Red'
   foreach ($r in $failed) {
-    Write-Host ('  [' + $r.Status + '] ' + $r.Name) -ForegroundColor Red
-    Write-Host ('        ' + $r.Detail) -ForegroundColor DarkRed
+    Out-Line ('  [' + $r.Status + '] ' + $r.Name) 'Red'
+    Out-Line ('        ' + $r.Detail) 'DarkRed'
   }
 }
 
-Write-Host ''
+Out-Line ''
+
+if ($ResultPath) {
+  try { $script:lines | Set-Content -LiteralPath $ResultPath -Encoding UTF8 } catch { }
+}
+
 if ($fail -gt 0 -or $err -gt 0) { exit 1 }
 exit 0
