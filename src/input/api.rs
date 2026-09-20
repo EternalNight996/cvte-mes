@@ -129,6 +129,17 @@ pub async fn api(op: Opts) -> e_utils::AnyResult<String> {
           let rows = cmes::pack::get_sn_pack_finish_qty(&cfg, &token, front_url, lot).await?;
           Ok(serde_json::to_string_pretty(&rows)?)
         }
+        "FeedSheet:GetFeedSheetList" => {
+          let front_url = op
+            .args
+            .first()
+            .ok_or("请把前端 API 根放在 --args[0]（如 http://heg-pc-cmes.gz.cvte.cn/frontApi/prod）")?;
+          let parent_id = op.args.get(1).ok_or("请把 parentId 放在 --args[1]")?;
+          let mo_lot = op.args.get(2).ok_or("请把批次号或 SN 放在 --args[2]")?;
+          let token = cmes::login::login(&cfg).await?;
+          let rows = cmes::feed_sheet::feed_sheet_list(&cfg, &token, front_url, parent_id, mo_lot).await?;
+          Ok(serde_json::to_string_pretty(&rows)?)
+        }
         "User:CreateToken" => cmes::login::login(&cfg).await,
         _ => Err("Unknow Task ".into()),
       }

@@ -26,7 +26,8 @@ set "STATION_CODE=test"
 REM ---------------- 配置区 2/3：被测数据 ----------------
 set "SN=U23070429-0A03693"
 set "LOT=HEG-YKCBU2607034701"
-set "FRONT_URL=http://xxx-pc-cmes.gz.cvte.cn/frontApi/prod"
+set "FRONT_URL=http://xxx-pc-cmes.gz.cvte.cn/frontApi/prod"
+set "PARENT_ID="
 
 REM ---------------- 配置区 3/3：写入类接口（会真写 MES 数据）1=执行 0=跳过 ----------------
 set "RUN_WRITE=0"
@@ -100,6 +101,10 @@ echo %IDX%,Pack:GetOtherListBySn,条码查组件关联>"%RUNDIR%\%IDX%.tsv"
 set /a IDX+=1
 echo %IDX%,Pack:GetSnPackFinishQty,批次查包装完工数>"%RUNDIR%\%IDX%.tsv"
 "%EXE%" --api CMES --task Pack:GetSnPackFinishQty --args "%FRONT_URL%" "%LOT%" --setting "%SETTING%" > "%RUNDIR%\%IDX%.txt" 2>&1
+
+set /a IDX+=1
+echo %IDX%,FeedSheet:GetFeedSheetList,CMES 查投料单>"%RUNDIR%\%IDX%.tsv"
+"%EXE%" --api CMES --task FeedSheet:GetFeedSheetList --args "%FRONT_URL%" "%PARENT_ID%" "%LOT%" --setting "%SETTING%" > "%RUNDIR%\%IDX%.txt" 2>&1
 
 REM ---------------- SCM 用例 ----------------
 set "SCM_SETTING={\"gateway\":\"%SCM_GATEWAY%\",\"apikey\":\"%SCM_APIKEY%\",\"api_secret\":\"%SCM_SECRET%\"}"

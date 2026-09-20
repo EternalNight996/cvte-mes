@@ -18,7 +18,7 @@ use serde_json::Value;
 use super::{header, Cfg, Response};
 
 /// 投料单条目（PackPrint 建箱用；字段多候选提取，字段名待接口文档确认）
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, serde::Serialize)]
 pub struct FeedSheetItem {
   /// 序号
   pub seq_no: Option<String>,
