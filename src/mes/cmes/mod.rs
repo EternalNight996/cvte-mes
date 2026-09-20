@@ -6,8 +6,22 @@ pub use r#type::*;
 use reqwest::header::{HeaderName, HeaderValue};
 use std::time::Duration;
 
+/// 安装 rustls 加密后端（ring）
+///
+/// reqwest 启用的是 `rustls-no-provider`：不先安装 provider，构造 Client 时 reqwest 会直接
+/// panic（`No rustls crypto provider is configured`），HTTP/HTTPS 一视同仁。故在建 Client 前幂等安装一次。
+pub fn ensure_tls() {
+  use std::sync::Once;
+  static ONCE: Once = Once::new();
+  ONCE.call_once(|| {
+    // 已安装过时返回 Err（携带既有 provider），忽略即可
+    let _ = rustls::crypto::ring::default_provider().install_default();
+  });
+}
+
 /// 带超时的 HTTP 客户端（默认 10s，避免 MES 服务器不可达时卡死工位流程）
 pub fn client() -> reqwest::Client {
+  ensure_tls();
   reqwest::Client::builder()
     .timeout(Duration::from_secs(10))
     .build()
@@ -15,7 +29,9 @@ pub fn client() -> reqwest::Client {
 }
 pub mod feed_sheet;
 pub mod login;
+pub mod pack;
 pub mod record;
+pub mod session;
 pub mod test_scan;
 pub fn header(k: &str, v: &str) -> e_utils::Result<(HeaderName, HeaderValue)> {
   Ok((HeaderName::from_str(k).any()?, HeaderValue::from_str(v).any()?))

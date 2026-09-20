@@ -115,6 +115,20 @@ pub async fn api(op: Opts) -> e_utils::AnyResult<String> {
           };
           cmes::record::insert_at_spi(&cfg, &token, insert_req).await
         }
+        "Pack:GetOtherListBySn" => {
+          let front_url = op.args.first().ok_or("请把前端 API 根放在 --args[0]（如 http://xxx-pc-cmes.gz.cvte.cn/frontApi/prod）")?;
+          let sn = op.args.get(1).ok_or("请把产品条码放在 --args[1]")?;
+          let token = cmes::login::login(&cfg).await?;
+          let rows = cmes::pack::get_other_list_by_sn(&cfg, &token, front_url, sn).await?;
+          Ok(serde_json::to_string_pretty(&rows)?)
+        }
+        "Pack:GetSnPackFinishQty" => {
+          let front_url = op.args.first().ok_or("请把前端 API 根放在 --args[0]（如 http://xxx-pc-cmes.gz.cvte.cn/frontApi/prod）")?;
+          let lot = op.args.get(1).ok_or("请把批次号放在 --args[1]")?;
+          let token = cmes::login::login(&cfg).await?;
+          let rows = cmes::pack::get_sn_pack_finish_qty(&cfg, &token, front_url, lot).await?;
+          Ok(serde_json::to_string_pretty(&rows)?)
+        }
         "User:CreateToken" => cmes::login::login(&cfg).await,
         _ => Err("Unknow Task ".into()),
       }

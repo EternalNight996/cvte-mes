@@ -38,6 +38,12 @@ cargo run -- --api CMES --task TestScan:SaveProduceTestByAutoTest --args '"{\"lo
 # 查询测试项结果
 cargo run -- --api CMES --task TestScan:GetProduceDetails --args '{\"produceTestId\":\"\",\"maxResultCount\":\"\"}' --setting '{\"stationName\":\"测试\",\"prodUrl\":\"http://url.cn\",\"sysUrl\":\"http://url.cn\",\"userName\":\"uname\",\"passWord\":\"passwd\",\"tokenName\":\"cmes_test_info\",\"causeNo\":\"test\",\"workCenter\":\"TEST01\",\"testFrameidNo\":\"TEST\",\"stationCode\":\"test\"}'
 
+# 按产品条码获取组件关联列表
+cargo run -- --api CMES --task Pack:GetOtherListBySn --args '前端API根(域名/frontApi/prod)' '产品条码' --setting '<CMES setting>'
+
+# 按批次获取SN包装完工数
+cargo run -- --api CMES --task Pack:GetSnPackFinishQty --args '前端API根(域名/frontApi/prod)' '批次号' --setting '<CMES setting>'
+
 # 序列扫描过站
 cargo run -- --api CMES --task Record:InsertAtSpi --args '条码' --setting '{\"stationName\":\"测试\",\"prodUrl\":\"http://url.cn\",\"sysUrl\":\"http://url.cn\",\"userName\":\"uname\",\"passWord\":\"passwd\",\"tokenName\":\"cmes_test_info\",\"causeNo\":\"test\",\"workCenter\":\"TEST01\",\"testFrameidNo\":\"TEST\",\"stationCode\":\"test\"}'```
 

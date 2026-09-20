@@ -6,6 +6,8 @@ use serde_json::Value;
 
 #[tokio::main]
 async fn main() -> AnyResult<()> {
+  // rustls-no-provider：不先装 provider，SCM/ItAPI/mac 里裸的 reqwest::Client::new() 会直接 panic
+  cvte_mes::mes::cmes::ensure_tls();
   let opts = Opts::new(None as Option<Vec<&str>>)?;
   let mut res: CmdResult<Value> = CmdResult {
     content: String::new(),

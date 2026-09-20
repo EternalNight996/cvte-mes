@@ -63,6 +63,47 @@ pub fn cmes_insert_at_spi<'a>(
   rt().block_on(cmes::record::insert_at_spi(cfg, token, req))
 }
 
+/// CMES 会话（阻塞）：Token 缓存 + 失效自动重取并重试一次，适合 GUI 反复调用
+///
+/// 比一次性函数省：同一会话内多次业务调用只登录一次（默认有效 2 小时、到期前 5 分钟自动刷新）。
+/// ```ignore
+/// let s = CmesSession::new(&cfg)?;
+/// let rows = s.get_other_list_by_sn("http://xxx-pc-cmes.gz.cvte.cn/frontApi/prod", "SN001")?;
+/// let done = s.get_sn_pack_finish_qty("http://xxx-pc-cmes.gz.cvte.cn/frontApi/prod", "LOT001")?;
+/// ```
+pub struct CmesSession {
+  rt: tokio::runtime::Runtime,
+  inner: cmes::session::Session,
+}
+
+impl std::fmt::Debug for CmesSession {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    f.debug_struct("CmesSession").field("session", &self.inner).finish_non_exhaustive()
+  }
+}
+
+impl CmesSession {
+  /// 新建会话（复用同一 tokio runtime 与 Token 缓存）
+  pub fn new(cfg: &cmes::Cfg) -> AnyResult<Self> {
+    Ok(Self {
+      rt: rt(),
+      inner: cmes::session::Session::new(cfg.clone()),
+    })
+  }
+  /// 取 Token（缓存有效直接返回，否则登录并缓存）
+  pub fn token(&self) -> AnyResult<String> {
+    self.rt.block_on(self.inner.token())
+  }
+  /// 按产品条码获取组件关联列表（GetOtherListBySn）
+  pub fn get_other_list_by_sn(&self, front_url: &str, sn_code: &str) -> AnyResult<Vec<cmes::pack::PackOtherItem>> {
+    self.rt.block_on(self.inner.get_other_list_by_sn(front_url, sn_code))
+  }
+  /// 按批次获取 SN 包装完工数（GetSnPackFinishQty；服务端按批次限流 10 秒 30 次）
+  pub fn get_sn_pack_finish_qty(&self, front_url: &str, mo_lot_no: &str) -> AnyResult<Vec<cmes::pack::SnPackFinishQty>> {
+    self.rt.block_on(self.inner.get_sn_pack_finish_qty(front_url, mo_lot_no))
+  }
+}
+
 // ---------- MAC（SN→MAC 绑定查询）----------
 
 /// 查询 SN 绑定的 MAC 列表（阻塞；token 为 Some 走 CMES，None 走 ItAPI apikey）

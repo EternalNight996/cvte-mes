@@ -1,2 +1,12 @@
 /target
 /Cargo.lock
+
+# scripts 验证脚本产物
+/scripts/verify*.log
+/scripts/verify*.out
+/scripts/verify*.runs/
+# 含真实生产账号密码的脚本（临时文件，用完即删）
+/scripts/verify2.bat
+# scripts 下的临时打包目录与本地 exe（勿提交）
+/scripts/cvte-mes/
+/scripts/cvte-mes.exe
