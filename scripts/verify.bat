@@ -106,6 +106,14 @@ set /a IDX+=1
 echo %IDX%,FeedSheet:GetFeedSheetList,CMES 查投料单>"%RUNDIR%\%IDX%.tsv"
 "%EXE%" --api CMES --task FeedSheet:GetFeedSheetList --args "%FRONT_URL%" "%PARENT_ID%" "%LOT%" --setting "%SETTING%" > "%RUNDIR%\%IDX%.txt" 2>&1
 
+set /a IDX+=1
+echo %IDX%,CMES:MoLotNo,CMES 组合 查批次号>"%RUNDIR%\%IDX%.tsv"
+"%EXE%" --api CMES --task CMES:MoLotNo --args "%SN%" --setting "%SETTING%" > "%RUNDIR%\%IDX%.txt" 2>&1
+
+set /a IDX+=1
+echo %IDX%,CMES:SessionToken,CMES 会话 Token 缓存>"%RUNDIR%\%IDX%.tsv"
+"%EXE%" --api CMES --task CMES:SessionToken --setting "%SETTING%" > "%RUNDIR%\%IDX%.txt" 2>&1
+
 REM ---------------- SCM 用例 ----------------
 set "SCM_SETTING={\"gateway\":\"%SCM_GATEWAY%\",\"apikey\":\"%SCM_APIKEY%\",\"api_secret\":\"%SCM_SECRET%\"}"
 set /a IDX+=1
@@ -218,4 +226,8 @@ echo %IDX%,Record:InsertAtSpi,序列扫描过站（写入）>"%RUNDIR%\%IDX%.tsv
 set /a IDX+=1
 echo %IDX%,TestScan:SaveProduceTestByAutoTest,报工保存（写入）>"%RUNDIR%\%IDX%.tsv"
 "%EXE%" --api CMES --task TestScan:SaveProduceTestByAutoTest --args "{\"lotSnCode\":\"%SN%\",\"isPass\":true,\"testTime\":\"%NOW%\",\"workerNo\":\"verify\",\"keyInfo\":\"\",\"autoTestVersion\":\"verify-bat\",\"testStartDate\":\"%NOW%\",\"testEndDate\":\"%NOW%\",\"testItem\":\"网络MAC\"}" --setting "%SETTING%" > "%RUNDIR%\%IDX%.txt" 2>&1
+set /a IDX+=1
+echo %IDX%,CMES:Report,CMES 组合 报工（写入）>"%RUNDIR%\%IDX%.tsv"
+"%EXE%" --api CMES --task CMES:Report --args "{\"lotSnCode\":\"%SN%\",\"isPass\":true,\"testTime\":\"%NOW%\",\"workerNo\":\"verify\",\"keyInfo\":\"\",\"autoTestVersion\":\"verify-bat\",\"testStartDate\":\"%NOW%\",\"testEndDate\":\"%NOW%\",\"testItem\":\"网络MAC\"}" --setting "%SETTING%" > "%RUNDIR%\%IDX%.txt" 2>&1
+
 goto :eof

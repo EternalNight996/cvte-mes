@@ -140,6 +140,19 @@ pub async fn api(op: Opts) -> e_utils::AnyResult<String> {
           let rows = cmes::feed_sheet::feed_sheet_list(&cfg, &token, front_url, parent_id, mo_lot).await?;
           Ok(serde_json::to_string_pretty(&rows)?)
         }
+        "CMES:MoLotNo" => {
+          let sn = op.args.first().ok_or("请把条码放在 --args[0]")?;
+          cmes::mo_lot_no(&cfg, sn).await
+        }
+        "CMES:SessionToken" => {
+          let session = cmes::session::Session::new(cfg.clone());
+          session.token().await
+        }
+        "CMES:Report" => {
+          let arg = &op.args.join(" ");
+          let req: cmes::test_scan::SaveProduceTestByAutoTestReq<'_> = serde_json::from_str(arg)?;
+          cmes::report(&cfg, &req).await
+        }
         "User:CreateToken" => cmes::login::login(&cfg).await,
         _ => Err("Unknow Task ".into()),
       }
