@@ -103,7 +103,7 @@ pub async fn batch_production_documents(
     "{}/product/doc/common/batch_production_documents",
     cfg.base_url
   );
-  let mut builder = reqwest::Client::new().post(url);
+  let mut builder = crate::mes::cmes::client().post(url);
   if !cfg.apikey.is_empty() {
     builder = builder.header("apikey", &cfg.apikey);
   }
@@ -183,7 +183,7 @@ pub struct SoftInfoResp {
 /// 根据生产批次ID或编号查询软件信息表生产文件列表
 pub async fn soft_info_list_v2(cfg: &Cfg, req: &SoftInfoReq) -> AnyResult<SoftInfoResp> {
   let url = format!("{}/v1/soft_info/list/v2", cfg.base_url);
-  let mut builder = reqwest::Client::new().post(url);
+  let mut builder = crate::mes::cmes::client().post(url);
   if !cfg.apikey.is_empty() {
     builder = builder.header("apikey", &cfg.apikey);
   }

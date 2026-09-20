@@ -126,7 +126,7 @@ pub async fn query_mo_factory(cfg: &Cfg, req: &MoFactoryReq) -> AnyResult<Vec<Mo
   let body = serde_json::to_value(req)?;
   let params = sign_params(&body);
   let headers = sign::build_headers(&cfg.apikey, &cfg.api_secret, &params)?;
-  let resp = reqwest::Client::new()
+  let resp = crate::mes::cmes::client()
     .post(url)
     .headers(headers)
     .json(&body)
@@ -177,7 +177,7 @@ pub async fn query_req_common(cfg: &Cfg, req: &FeedReq) -> AnyResult<Vec<FeedInf
   let body = serde_json::to_value(req)?;
   let params = sign_params(&body);
   let headers = sign::build_headers(&cfg.apikey, &cfg.api_secret, &params)?;
-  let resp = reqwest::Client::new()
+  let resp = crate::mes::cmes::client()
     .post(url)
     .headers(headers)
     .json(&body)

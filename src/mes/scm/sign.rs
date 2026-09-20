@@ -113,7 +113,7 @@ impl DefaultSignSDK {
       (HeaderName::from_static("sign"), HeaderValue::from_str(&sign)?),
     ]);
     // 发送请求
-    let client = reqwest::Client::new();
+    let client = crate::mes::cmes::client();
     let response = client
       .post("https://itgw-uat.cvte.com/env-101/scm/scmwip/gw-wip/wip/api/mo/factory")
       .headers(headers)

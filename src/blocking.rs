@@ -158,7 +158,7 @@ pub fn http_post_json(
   body: &serde_json::Value,
 ) -> AnyResult<serde_json::Value> {
   rt().block_on(async {
-    let mut builder = reqwest::Client::new()
+    let mut builder = crate::mes::cmes::client()
       .post(url)
       .header("Content-Type", "application/json");
     if !apikey.is_empty() {

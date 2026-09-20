@@ -99,7 +99,7 @@ pub async fn query_macs_by_sn(
   if cfg.query_url.is_empty() {
     return Err("未配置 mac_query_url（SN→MAC 接口地址）".into());
   }
-  let mut builder = reqwest::Client::new()
+  let mut builder = crate::mes::cmes::client()
     .post(&cfg.query_url)
     .header("Content-Type", "application/json");
   if let Some(t) = token {
