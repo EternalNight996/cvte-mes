@@ -54,8 +54,13 @@ function Pad-Right {
 
 function Get-Field {
   param([string]$Raw, [string]$Key)
-  $m = [regex]::Match($Raw, '"' + $Key + '"\s*:\s*"(.*?)"\s*[,}]', 'Singleline')
-  if ($m.Success) { return ($m.Groups[1].Value -replace '\\r', ' ' -replace '\\n', ' ') }
+  $m = [regex]::Match($Raw, '"' + $Key + '"\s*:\s*"((?:[^"\\]|\\.)*)"', 'Singleline')
+  if ($m.Success) {
+    $v = $m.Groups[1].Value
+    $v = $v -replace '\\r\\n', ' ' -replace '\\n', ' ' -replace '\\r', ' ' -replace '\\t', ' '
+    $v = $v -replace '\\"', '"' -replace '\\\\', '\'
+    return $v
+  }
   return ''
 }
 
@@ -93,7 +98,7 @@ if (Test-Path -LiteralPath $RunDir) {
       $first = ($raw -split "`r?`n" | Where-Object { $_.Trim() } | Select-Object -First 1)
       if ($first) { $detail = '无 status 字段（进程异常？）：' + $first.Trim() }
     }
-    if ($detail.Length -gt 96) { $detail = $detail.Substring(0, 96) + '...' }
+    if ($detail.Length -gt 400) { $detail = $detail.Substring(0, 400) + '...' }
 
     $rows += [pscustomobject]@{
       Idx = [string][int]$f.BaseName

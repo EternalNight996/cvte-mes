@@ -71,6 +71,9 @@ set /a IDX=0
 echo 正在验证，请稍候（每个接口最长 10 秒超时）...
 echo.
 
+REM ---------------- 占位符防呆 ----------------
+echo %PROD_URL%%SYS_URL%%FRONT_URL% | findstr /c:"xxx" >nul 2>&1
+if not errorlevel 1 echo [WARN] 配置区还有 xxx 占位符未填（PROD_URL / SYS_URL / FRONT_URL），相关接口会失败
 set "SETTING={\"stationName\":\"%STATION_NAME%\",\"prodUrl\":\"%PROD_URL%\",\"sysUrl\":\"%SYS_URL%\",\"userName\":\"%USER_NAME%\",\"passWord\":\"%PASS_WORD%\",\"tokenName\":\"%TOKEN_NAME%\",\"causeNo\":\"%CAUSE_NO%\",\"workCenter\":\"%WORK_CENTER%\",\"testFrameidNo\":\"%TEST_FRAME_ID%\",\"stationCode\":\"%STATION_CODE%\"}"
 
 REM ---------------- 只读用例 ----------------
