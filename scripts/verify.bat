@@ -24,9 +24,11 @@ set "TEST_FRAME_ID=TEST"
 set "STATION_CODE=test"
 
 REM ---------------- 配置区 2/3：被测数据 ----------------
-set "SN=U23070429-0A03693"
-set "LOT=HEG-YKCBU2607034701"
-set "FRONT_URL=http://xxx-pc-cmes.gz.cvte.cn/frontApi/prod"
+set "SN=MT81I3GSF-2HG260704720XAG0015"
+set "SN2=B26080686-0A01072$002.035.0004128"
+set "LOT=HEG-YKCBU26070472"
+set "LOT2=HEG-YKZBU25080273"
+set "FRONT_URL=http://heg-pc-cmes.gz.cvte.cn/frontApi/prod"
 set "PARENT_ID="
 
 REM ---------------- 配置区 3/3：写入类接口（会真写 MES 数据）1=执行 0=跳过 ----------------
@@ -113,6 +115,31 @@ echo %IDX%,CMES:MoLotNo,CMES 组合 查批次号>"%RUNDIR%\%IDX%.tsv"
 set /a IDX+=1
 echo %IDX%,CMES:SessionToken,CMES 会话 Token 缓存>"%RUNDIR%\%IDX%.tsv"
 "%EXE%" --api CMES --task CMES:SessionToken --setting "%SETTING%" > "%RUNDIR%\%IDX%.txt" 2>&1
+
+REM ---------------- 板卡组（SN2 留空则整段跳过） ----------------
+if "%SN2%"=="" goto :skip_sn2
+
+set /a IDX+=1
+echo %IDX%,TestScan:CheckLotSnCode(板卡),板卡过站校验>"%RUNDIR%\%IDX%.tsv"
+"%EXE%" --api CMES --task TestScan:CheckLotSnCode --args "%SN2%" --setting "%SETTING%" > "%RUNDIR%\%IDX%.txt" 2>&1
+
+set /a IDX+=1
+echo %IDX%,TestScan:GetInfoBySn(板卡),板卡查批次>"%RUNDIR%\%IDX%.tsv"
+"%EXE%" --api CMES --task TestScan:GetInfoBySn --args "%SN2%" --setting "%SETTING%" > "%RUNDIR%\%IDX%.txt" 2>&1
+
+set /a IDX+=1
+echo %IDX%,CMES:MoLotNo(板卡),板卡组合查批次号>"%RUNDIR%\%IDX%.tsv"
+"%EXE%" --api CMES --task CMES:MoLotNo --args "%SN2%" --setting "%SETTING%" > "%RUNDIR%\%IDX%.txt" 2>&1
+
+set /a IDX+=1
+echo %IDX%,Pack:GetOtherListBySn(板卡),板卡查组件关联>"%RUNDIR%\%IDX%.tsv"
+"%EXE%" --api CMES --task Pack:GetOtherListBySn --args "%FRONT_URL%" "%SN2%" --setting "%SETTING%" > "%RUNDIR%\%IDX%.txt" 2>&1
+
+set /a IDX+=1
+echo %IDX%,FeedSheet:GetFeedSheetList(板卡),板卡批次查投料单>"%RUNDIR%\%IDX%.tsv"
+"%EXE%" --api CMES --task FeedSheet:GetFeedSheetList --args "%FRONT_URL%" "%PARENT_ID%" "%LOT2%" --setting "%SETTING%" > "%RUNDIR%\%IDX%.txt" 2>&1
+
+:skip_sn2
 
 REM ---------------- SCM 用例 ----------------
 set "SCM_SETTING={\"gateway\":\"%SCM_GATEWAY%\",\"apikey\":\"%SCM_APIKEY%\",\"api_secret\":\"%SCM_SECRET%\"}"
