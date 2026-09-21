@@ -172,13 +172,24 @@ Scenarios a script cannot construct — token cache, one login under concurrency
 cargo run --features input-api,blocking -- --api CMES --task SelfTest:Session
 ```
 
-### Where the production config comes from
+### Where the production config comes from (no Python needed on site)
 
-`scripts/gen_prod_cfg.py` reads accounts/hosts from the `org_cvte_cmes` table in `etest.db` and writes `verify.prod.bat` (plaintext credentials, gitignored); `verify.bat` loads it automatically when present, so switching account or factory needs no edit to the script itself:
+`cvte-mes-gencfg.exe` reads accounts/hosts from the `org_cvte_cmes` table in `etest.db` and writes `verify.prod.bat` (plaintext credentials, gitignored); `verify.bat` loads it automatically when present, so switching account or factory needs no edit to the script itself. SQLite is **statically compiled** into that exe — no Python or other external dependency on site.
+
+```bat
+:: only when the config must be regenerated (build once, ship the exe)
+cargo build --release --features gen-cfg
+
+:: on site, double-click gen-cfg.bat: list candidates -> pick an id -> write verify.prod.bat
+gen-cfg.bat
+gen-cfg.bat D:\path\to\etest.db     :: or pass an explicit etest.db path
+```
+
+A Python variant remains available on dev machines:
 
 ```sh
-python scripts/gen_prod_cfg.py --list                        # list candidates
-python scripts/gen_prod_cfg.py --id 1 --sn <SN> --lot <LOT>  # generate
+python scripts/gen_prod_cfg.py --list
+python scripts/gen_prod_cfg.py --id 1 --sn <SN> --lot <LOT>
 ```
 
 ---

@@ -12,3 +12,4 @@
 # scripts 下的临时打包目录与本地 exe（勿提交）
 /scripts/cvte-mes/
 /scripts/cvte-mes.exe
+/scripts/cvte-mes-gencfg.exe

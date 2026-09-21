@@ -7,6 +7,8 @@ proc-macro = false
 [features]
 input-api = ["structopt"]
 blocking = []
+# 从 etest.db 生成 verify.prod.bat 的独立小工具：只有该 bin 需要，库使用者不受影响
+gen-cfg = ["dep:rusqlite"]
 default = []
 
 [dependencies]
@@ -29,6 +31,13 @@ tokio = { version = "1", features = ["full"] }
 reqwest = { version = "0.13", default-features = false, features = ["json", "query", "rustls-no-provider"] }
 rustls = { version = "0.23", default-features = false, features = ["ring"] }
 md5 = "0.8"
+# 仅 gen-cfg bin 使用；bundled = 静态编译 SQLite，现场电脑无需任何外部依赖/Python
+rusqlite = { version = "0.32", features = ["bundled"], optional = true }
+
+[[bin]]
+name = "cvte-mes-gencfg"
+path = "src/bin/gen_cfg.rs"
+required-features = ["gen-cfg"]
 
 [dev-dependencies]
 cvte-mes = { path = "./", features = ["input-api"] }

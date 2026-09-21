@@ -172,13 +172,24 @@ scripts\verify.bat
 cargo run --features input-api,blocking -- --api CMES --task SelfTest:Session
 ```
 
-### 生产配置来源
+### 生产配置来源（现场无需 Python）
 
-`scripts/gen_prod_cfg.py` 从 `etest.db` 的 `org_cvte_cmes` 表读取账号/域名，生成 `verify.prod.bat`（含明文凭据，已 gitignore）；`verify.bat` 检测到它存在会自动加载，换账号/换工厂不必改脚本本体：
+`cvte-mes-gencfg.exe` 从 `etest.db` 的 `org_cvte_cmes` 表读取账号/域名，生成 `verify.prod.bat`（含明文凭据，已 gitignore）；`verify.bat` 检测到它存在会自动加载，换账号/换工厂不必改脚本本体。SQLite 是**静态编译**进该 exe 的，现场无需 Python 或任何外部依赖。
+
+```bat
+:: 需要重新生成配置时（开发机构建一次，产物可直接拷到现场）
+cargo build --release --features gen-cfg
+
+:: 现场双击 gen-cfg.bat：列出候选 → 选 id → 生成 verify.prod.bat
+gen-cfg.bat
+gen-cfg.bat D:\路径\etest.db        :: 或指定 etest.db 路径
+```
+
+开发机上也保留了 Python 版：
 
 ```sh
-python scripts/gen_prod_cfg.py --list                        # 列出候选配置
-python scripts/gen_prod_cfg.py --id 1 --sn <SN> --lot <LOT>  # 生成
+python scripts/gen_prod_cfg.py --list
+python scripts/gen_prod_cfg.py --id 1 --sn <SN> --lot <LOT>
 ```
 
 ---
