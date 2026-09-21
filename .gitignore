@@ -13,3 +13,7 @@
 /scripts/cvte-mes/
 /scripts/cvte-mes.exe
 /scripts/cvte-mes-gencfg.exe
+# doc/ 下的对接方接口文档（含密级标记，未经确认不进公开仓库）
+/doc/CMES对外接口对接标准.md
+/doc/CVTE_SCM_WIP接口文档v1.0.md
+/doc/ItAPI接口文档.md
