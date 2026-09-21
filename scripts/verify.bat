@@ -25,7 +25,7 @@ set "STATION_CODE=test"
 
 REM ---------------- 配置区 2/3：被测数据 ----------------
 set "SN=MT81I3GSF-2HG260704720XAG0015"
-set "SN2=B26080686-0A01072$002.035.0004128"
+set "SN2=B26080686-0A01072"
 set "LOT=HEG-YKCBU26070472"
 set "LOT2=HEG-YKZBU25080273"
 set "FRONT_URL=http://heg-pc-cmes.gz.cvte.cn/frontApi/prod"
