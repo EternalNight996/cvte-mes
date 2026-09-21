@@ -66,7 +66,7 @@ pub async fn feed_sheet_list(
 ) -> e_utils::AnyResult<Vec<FeedSheetItem>> {
   let url = format!("{}/api/services/app/ScanHead/GetFeedSheetList", front_url);
   let headers = header::HeaderMap::from_iter([header(&cfg.tokenName, token)?]);
-  let response = super::client()
+  let text = super::client()
     .get(url)
     .headers(headers)
     .query(&[
@@ -79,12 +79,32 @@ pub async fn feed_sheet_list(
     .send()
     .await
     .map_err(|e| format!("CMES(feed_sheet_list)：无法链接 {front_url} 请检查网络状态! ({e})"))?
-    .json::<Response<Option<Vec<Value>>>>()
-    .await?;
+    .text()
+    .await
+    .map_err(|e| format!("CMES(feed_sheet_list)：读取响应失败 ({e})"))?;
+  let response: Response<Option<Vec<Value>>> = serde_json::from_str(&text)
+    .map_err(|e| format!("CMES(feed_sheet_list)：响应不是约定 JSON（{e}）；原始响应：{}", snippet(&text)))?;
   match (response.success, response.result, response.error) {
     (true, Some(rows), _) => Ok(rows.iter().map(FeedSheetItem::from_json).collect()),
-    (_, _, Some(err)) => Err(err.message.into()),
-    _ => Err("查询投料单失败，未知错误".into()),
+    (_, _, Some(err)) => Err(format!("CMES(feed_sheet_list)：{}；原始响应：{}", err.message, snippet(&text)).into()),
+    _ => Err(
+      format!(
+        "CMES(feed_sheet_list)：success 非 true 且无 error（常见于鉴权失败/参数不匹配）；原始响应：{}",
+        snippet(&text)
+      )
+      .into(),
+    ),
+  }
+}
+
+/// 截断原始响应，避免错误信息过长（鉴权失败时前端常返回非 ABP 结构的 JSON）
+fn snippet(text: &str) -> String {
+  let t = text.trim();
+  let cut: String = t.chars().take(240).collect();
+  if t.chars().count() > 240 {
+    format!("{cut}...")
+  } else {
+    cut
   }
 }
 

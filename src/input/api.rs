@@ -162,6 +162,36 @@ pub async fn api(op: Opts) -> e_utils::AnyResult<String> {
             Err(format!("自检未通过：{text}").into())
           }
         }
+        "Diagnose:Auth" => {
+          let url = op.args.first().ok_or("请把要探测的 URL 放在 --args[0]")?;
+          let token = cmes::login::login(&cfg).await?;
+          let mut attempts: Vec<serde_json::Value> = Vec::new();
+          let candidates: Vec<(String, String)> = vec![
+            ("x-auth-token".to_string(), token.clone()),
+            ("Authorization".to_string(), format!("Bearer {token}")),
+            (cfg.tokenName.clone(), token.clone()),
+            ("Cookie".to_string(), format!("{}={}", cfg.tokenName, token)),
+            ("token".to_string(), token.clone()),
+          ];
+          for (name, value) in candidates {
+            let (code, snippet) = match cmes::client().get(url).header(name.as_str(), value).send().await {
+              Ok(resp) => {
+                let code = resp.status().as_u16();
+                let text = resp.text().await.unwrap_or_default();
+                let cut: String = text.trim().chars().take(200).collect();
+                (code, cut)
+              }
+              Err(e) => (0u16, format!("请求失败: {e}")),
+            };
+            attempts.push(serde_json::json!({ "header": name, "http": code, "body": snippet }));
+          }
+          Ok(serde_json::to_string_pretty(&serde_json::json!({
+            "url": url,
+            "note": "依次用不同鉴权头访问同一 URL；看哪种返回 200，即可判断前端 API 认什么鉴权（Token 值不落日志）",
+            "login_token_ok": true,
+            "attempts": attempts
+          }))?)
+        }
         "User:CreateToken" => cmes::login::login(&cfg).await,
         _ => Err("Unknow Task ".into()),
       }

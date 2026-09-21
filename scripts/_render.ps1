@@ -94,6 +94,9 @@ if (Test-Path -LiteralPath $RunDir) {
     elseif ($raw -match '"status"\s*:\s*false') { $status = 'FAIL' }
 
     $detail = Get-Field -Raw $raw -Key 'content'
+    if ($detail -match '^eyJ[A-Za-z0-9_\-\.]{20,}$') {
+      $detail = "JWT Token（已脱敏，长度 $($detail.Length)）"
+    }
     if (-not $detail) {
       $first = ($raw -split "`r?`n" | Where-Object { $_.Trim() } | Select-Object -First 1)
       if ($first) { $detail = '无 status 字段（进程异常？）：' + $first.Trim() }
@@ -147,13 +150,18 @@ if ($null -ne $tMin -and $null -ne $tMax) {
 Out-Line ''
 Out-Line $bar 'DarkGray'
 
-$failed = @($rows | Where-Object { $_.Status -ne 'PASS' -and $_.Detail })
-if ($failed.Count -gt 0) {
+$withDetail = @($rows | Where-Object { $_.Detail })
+if ($withDetail.Count -gt 0) {
   Out-Line ''
-  Out-Line ' 失败/异常详情' 'Red'
-  foreach ($r in $failed) {
-    Out-Line ('  [' + $r.Status + '] ' + $r.Name) 'Red'
-    Out-Line ('        ' + $r.Detail) 'DarkRed'
+  Out-Line ' 结果明细（PASS 也打印）' 'DarkCyan'
+  foreach ($r in $withDetail) {
+    if ($r.Status -eq 'PASS') {
+      Out-Line ('  [PASS] ' + $r.Name) 'Green'
+      Out-Line ('         ' + $r.Detail) 'DarkGreen'
+    } else {
+      Out-Line ('  [' + $r.Status + '] ' + $r.Name) 'Red'
+      Out-Line ('         ' + $r.Detail) 'DarkRed'
+    }
   }
 }
 

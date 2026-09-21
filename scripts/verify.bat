@@ -74,7 +74,14 @@ set /a IDX=0
 echo 正在验证，请稍候（每个接口最长 10 秒超时）...
 echo.
 
-REM ---------------- 生产配置（scripts/gen_prod_cfg.py 从 etest.db 生成；存在即生效） ----------------
+REM ---------------- 生产配置：存在则加载；缺失时用同目录 etest.db 自动生成 ----------------
+if exist "%~dp0verify.prod.bat" goto :prod_ready
+if not exist "%~dp0etest.db" goto :prod_ready
+if not exist "%~dp0cvte-mes-gencfg.exe" goto :prod_ready
+echo [INFO] 未找到 verify.prod.bat，正在从同目录 etest.db 生成...
+"%~dp0cvte-mes-gencfg.exe" --db "%~dp0etest.db" --out "%~dp0verify.prod.bat"
+
+:prod_ready
 if exist "%~dp0verify.prod.bat" call "%~dp0verify.prod.bat"
 
 REM ---------------- 占位符防呆 ----------------
@@ -147,6 +154,10 @@ echo %IDX%,FeedSheet:GetFeedSheetList(板卡),板卡批次查投料单>"%RUNDIR%
 "%EXE%" --api CMES --task FeedSheet:GetFeedSheetList --args "%FRONT_URL%" "%PARENT_ID%" "%LOT2%" --setting "%SETTING%" > "%RUNDIR%\%IDX%.txt" 2>&1
 
 :skip_sn2
+
+set /a IDX+=1
+echo %IDX%,Diagnose:Auth,诊断 前端API 鉴权头>"%RUNDIR%\%IDX%.tsv"
+"%EXE%" --api CMES --task Diagnose:Auth --args "%FRONT_URL%/api/services/pack/Pack/GetOtherListBySn?snCode=%SN%" --setting "%SETTING%" > "%RUNDIR%\%IDX%.txt" 2>&1
 
 REM ---------------- SCM 用例 ----------------
 set "SCM_SETTING={\"gateway\":\"%SCM_GATEWAY%\",\"apikey\":\"%SCM_APIKEY%\",\"api_secret\":\"%SCM_SECRET%\"}"
