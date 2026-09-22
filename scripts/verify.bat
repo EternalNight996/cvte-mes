@@ -110,7 +110,7 @@ echo %IDX%,TestScan:GetInfoBySn,条码查批次>"%RUNDIR%\%IDX%.tsv"
 
 set /a IDX+=1
 echo %IDX%,TestScan:GetProduceDetails,查询测试项结果>"%RUNDIR%\%IDX%.tsv"
-"%EXE%" --api CMES --task TestScan:GetProduceDetails --args "{\"produceTestId\":\"\",\"maxResultCount\":\"10\"}" --setting "%SETTING%" > "%RUNDIR%\%IDX%.txt" 2>&1
+"%EXE%" --api CMES --task TestScan:GetProduceDetails --args "{\"produceTestId\":\"%SN%\",\"maxResultCount\":\"10\"}" --setting "%SETTING%" > "%RUNDIR%\%IDX%.txt" 2>&1
 
 set /a IDX+=1
 echo %IDX%,Pack:GetOtherListBySn,条码查组件关联>"%RUNDIR%\%IDX%.tsv"

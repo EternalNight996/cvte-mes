@@ -92,7 +92,10 @@ if (Test-Path -LiteralPath $RunDir) {
 
     $status = 'ERROR'
     if ($raw -match '"status"\s*:\s*true') { $status = 'PASS' }
-    elseif ($raw -match '"status"\s*:\s*false') { $status = 'FAIL' }
+    elseif ($raw -match '"status"\s*:\s*false') {
+      # MES 业务响应（接口已通、业务层给出结果）与链路/鉴权失败要分开：前者不算失败
+      if ($raw -match 'isSuccess') { $status = 'BIZ' } else { $status = 'FAIL' }
+    }
 
     $detail = Get-Field -Raw $raw -Key 'content'
     if ($detail -match '^eyJ[A-Za-z0-9_\-\.]{20,}$') {
@@ -116,6 +119,7 @@ if (Test-Path -LiteralPath $RunDir) {
 }
 
 $pass = @($rows | Where-Object { $_.Status -eq 'PASS' }).Count
+$biz = @($rows | Where-Object { $_.Status -eq 'BIZ' }).Count
 $fail = @($rows | Where-Object { $_.Status -eq 'FAIL' }).Count
 $err = @($rows | Where-Object { $_.Status -eq 'ERROR' }).Count
 $bar = '=' * $lineW
@@ -131,7 +135,7 @@ Out-Line ('  ' + (Pad-Right '#' $idxW) + ' ' + (Pad-Right '接口' $nameW) + ' '
 Out-Line $thin 'DarkGray'
 
 foreach ($r in $rows) {
-  $color = switch ($r.Status) { 'PASS' { 'Green' } 'FAIL' { 'Red' } default { 'Yellow' } }
+  $color = switch ($r.Status) { 'PASS' { 'Green' } 'BIZ' { 'Cyan' } 'FAIL' { 'Red' } default { 'Yellow' } }
   Out-Line ('  ' + (Pad-Right $r.Idx $idxW) + ' ' + (Pad-Right $r.Name $nameW) + ' ') -NoNewline
   Out-Line (Pad-Right $r.Status $resW) $color -NoNewline
   Out-Line (' ' + $r.Desc)
@@ -147,6 +151,8 @@ if ($gap.Count -gt 0) {
 
 Out-Line ('  通过 ') -NoNewline
 Out-Line ('{0}' -f $pass) 'Green' -NoNewline
+Out-Line ('   业务响应 ') -NoNewline
+Out-Line ('{0}' -f $biz) 'Cyan' -NoNewline
 Out-Line ('   失败 ') -NoNewline
 Out-Line ('{0}' -f $fail) 'Red' -NoNewline
 if ($err -gt 0) {
@@ -162,7 +168,7 @@ Out-Line $bar 'DarkGray'
 Out-Line ''
 Out-Line ' 结果明细（全部用例，含编号与原始输出文件）' 'DarkCyan'
 foreach ($r in $rows) {
-  $c = switch ($r.Status) { 'PASS' { 'Green' } 'FAIL' { 'Red' } default { 'Yellow' } }
+  $c = switch ($r.Status) { 'PASS' { 'Green' } 'BIZ' { 'Cyan' } 'FAIL' { 'Red' } default { 'Yellow' } }
   Out-Line ('  [' + $r.Idx.PadLeft(2) + '] ' + $r.Status.PadRight(5) + ' ' + $r.Name) $c
   if ($r.Detail) {
     Out-Line ('        ' + $r.Detail) 'Gray'
