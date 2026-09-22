@@ -57,7 +57,8 @@ function Get-Field {
   $m = [regex]::Match($Raw, '"' + $Key + '"\s*:\s*"((?:[^"\\]|\\.)*)"', 'Singleline')
   if ($m.Success) {
     $v = $m.Groups[1].Value
-    $v = $v -replace '\\r\\n', ' ' -replace '\\n', ' ' -replace '\\r', ' ' -replace '\\t', ' '
+    $indent = '        '
+    $v = $v -replace '\\r\\n', ("`r`n" + $indent) -replace '\\n', ("`r`n" + $indent) -replace '\\r', ("`r`n" + $indent) -replace '\\t', '  '
     $v = $v -replace '\\"', '"' -replace '\\\\', '\'
     return $v
   }
@@ -101,7 +102,7 @@ if (Test-Path -LiteralPath $RunDir) {
       $first = ($raw -split "`r?`n" | Where-Object { $_.Trim() } | Select-Object -First 1)
       if ($first) { $detail = '无 status 字段（进程异常？）：' + $first.Trim() }
     }
-    if ($detail.Length -gt 400) { $detail = $detail.Substring(0, 400) + '...' }
+    # 完整记录，不截断；每个用例的原始输出另存于 runs\<N>.txt
 
     $rows += [pscustomobject]@{
       Idx = [string][int]$f.BaseName
@@ -109,6 +110,7 @@ if (Test-Path -LiteralPath $RunDir) {
       Desc = $desc
       Status = $status
       Detail = $detail
+      RawFile = ($f.BaseName + '.txt')
     }
   }
 }
@@ -136,6 +138,13 @@ foreach ($r in $rows) {
 }
 
 Out-Line $thin 'DarkGray'
+$nums = @($rows | ForEach-Object { [int]$_.Idx } | Sort-Object)
+$gap = @()
+for ($i = 1; $i -le $nums.Count; $i++) { if ($nums[$i - 1] -ne $i) { $gap += $i } }
+if ($gap.Count -gt 0) {
+  Out-Line (' [WARN] 用例编号不连续（可能发生用例互相覆盖），缺失/重复：' + ($gap -join ', ')) 'Yellow'
+}
+
 Out-Line ('  通过 ') -NoNewline
 Out-Line ('{0}' -f $pass) 'Green' -NoNewline
 Out-Line ('   失败 ') -NoNewline
@@ -150,19 +159,17 @@ if ($null -ne $tMin -and $null -ne $tMax) {
 Out-Line ''
 Out-Line $bar 'DarkGray'
 
-$withDetail = @($rows | Where-Object { $_.Detail })
-if ($withDetail.Count -gt 0) {
-  Out-Line ''
-  Out-Line ' 结果明细（PASS 也打印）' 'DarkCyan'
-  foreach ($r in $withDetail) {
-    if ($r.Status -eq 'PASS') {
-      Out-Line ('  [PASS] ' + $r.Name) 'Green'
-      Out-Line ('         ' + $r.Detail) 'DarkGreen'
-    } else {
-      Out-Line ('  [' + $r.Status + '] ' + $r.Name) 'Red'
-      Out-Line ('         ' + $r.Detail) 'DarkRed'
-    }
+Out-Line ''
+Out-Line ' 结果明细（全部用例，含编号与原始输出文件）' 'DarkCyan'
+foreach ($r in $rows) {
+  $c = switch ($r.Status) { 'PASS' { 'Green' } 'FAIL' { 'Red' } default { 'Yellow' } }
+  Out-Line ('  [' + $r.Idx.PadLeft(2) + '] ' + $r.Status.PadRight(5) + ' ' + $r.Name) $c
+  if ($r.Detail) {
+    Out-Line ('        ' + $r.Detail) 'Gray'
+  } else {
+    Out-Line '        （无返回内容）' 'DarkGray'
   }
+  Out-Line ('        -> runs\' + $r.RawFile) 'DarkGray'
 }
 
 Out-Line ''

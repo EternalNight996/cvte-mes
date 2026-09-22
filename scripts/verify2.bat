@@ -223,6 +223,19 @@ call :plain_report > "%RESULT%" 2>&1
 type "%RESULT%"
 
 :reported
+REM ---------------- 归档本次日志（保留历史，便于事后追溯） ----------------
+set /a LN=1
+:nextlog
+if not exist "%~dp0logs\%LN%" goto :gotlog
+set /a LN+=1
+goto :nextlog
+
+:gotlog
+mkdir "%~dp0logs\%LN%\runs" 2>nul
+copy /y "%RESULT%" "%~dp0logs\%LN%\result.txt" >nul 2>&1
+xcopy /y /q "%RUNDIR%\*.*" "%~dp0logs\%LN%\runs\" >nul 2>&1
+echo 本次日志已归档：logs\%LN%\（result.txt + runs 全量原始输出）
+
 echo 使用 exe：%EXE%
 echo 结果文件：%RESULT%
 echo 原始输出：%RUNDIR%
