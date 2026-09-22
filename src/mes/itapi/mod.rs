@@ -45,6 +45,17 @@ pub struct ProdDocReq {
   pub productName: Option<String>,
 }
 
+/// 截断原始响应，便于错误排查（未鉴权时 ItAPI 可能返回非本接口的 JSON/HTML）
+fn clip(text: &str) -> String {
+  let t = text.trim();
+  let cut: String = t.chars().take(300).collect();
+  if t.chars().count() > 300 {
+    format!("{cut}...")
+  } else {
+    cut
+  }
+}
+
 /// CPLM 生产文件（返参 data 项）
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ProdDoc {
@@ -107,14 +118,21 @@ pub async fn batch_production_documents(
   if !cfg.apikey.is_empty() {
     builder = builder.header("apikey", &cfg.apikey);
   }
-  builder
+  let text = builder
     .json(reqs)
     .send()
     .await
     .map_err(|_| format!("ItAPI(batch_production_documents): 无法连接 {} 请检查网络!", cfg.base_url))?
-    .json::<ProdDocResp>()
+    .text()
     .await
-    .map_err(|e| format!("ItAPI(batch_production_documents): 响应解析失败: {e}").into())
+    .map_err(|e| format!("ItAPI(batch_production_documents): 读取响应失败: {e}"))?;
+  serde_json::from_str::<ProdDocResp>(&text).map_err(|e| {
+    format!(
+      "ItAPI(batch_production_documents): 响应解析失败: {e}；原始响应：{}",
+      clip(&text)
+    )
+    .into()
+  })
 }
 
 /// 查询软件信息表 入参
@@ -187,14 +205,21 @@ pub async fn soft_info_list_v2(cfg: &Cfg, req: &SoftInfoReq) -> AnyResult<SoftIn
   if !cfg.apikey.is_empty() {
     builder = builder.header("apikey", &cfg.apikey);
   }
-  builder
+  let text = builder
     .json(req)
     .send()
     .await
     .map_err(|_| format!("ItAPI(soft_info_list_v2): 无法连接 {} 请检查网络!", cfg.base_url))?
-    .json::<SoftInfoResp>()
+    .text()
     .await
-    .map_err(|e| format!("ItAPI(soft_info_list_v2): 响应解析失败: {e}").into())
+    .map_err(|e| format!("ItAPI(soft_info_list_v2): 读取响应失败: {e}"))?;
+  serde_json::from_str::<SoftInfoResp>(&text).map_err(|e| {
+    format!(
+      "ItAPI(soft_info_list_v2): 响应解析失败: {e}；原始响应：{}",
+      clip(&text)
+    )
+    .into()
+  })
 }
 
 #[cfg(test)]

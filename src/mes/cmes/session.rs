@@ -168,8 +168,16 @@ pub async fn post_json_with_token(cfg: &Cfg, token: &str, url: &str, body: &Valu
 }
 
 /// 已有 Token 的一次性 POST（参数在 query、无请求体）：沿用同一套响应分层
+///
+/// 显式补一个空 body：部分网关对「POST 且无 Content-Length」直接返回 **411 Length Required**
+/// （曾出现在 TestScan/GetProduceDetails）。
 pub async fn post_query_with_token(cfg: &Cfg, token: &str, url: &str, query: &[(&str, &str)]) -> e_utils::AnyResult<Value> {
-  finish(super::client().post(url).headers(auth_headers(cfg, token)?).query(query)).await
+  let request = super::client()
+    .post(url)
+    .headers(auth_headers(cfg, token)?)
+    .query(query)
+    .body(String::new());
+  finish(request).await
 }
 
 /// 鉴权请求头（标准字段 `x-auth-token`；`Cfg::tokenName` 非空时以现场配置为准）
@@ -218,7 +226,15 @@ fn classify(status: u16, body: &str) -> Outcome {
         }
       }
     },
-    other => Outcome::Failed(format!("CMES 未约定的 HTTP 状态码 {other}（按接口异常处理，请记录后联系接口维护人员）")),
+    other => {
+      // 未约定状态码也带上服务端提示与响应片段（如 400 ValidationError 里才有真实原因）
+      let hint = server_hint(body).unwrap_or_default();
+      Outcome::Failed(format!(
+        "CMES 未约定的 HTTP 状态码 {other}（按接口异常处理）；服务端提示：{}；响应：{}",
+        if hint.is_empty() { "（无）" } else { hint.as_str() },
+        clip(body.trim(), 300)
+      ))
+    }
   }
 }
 
