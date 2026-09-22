@@ -98,6 +98,8 @@ set /a IDX+=1
 echo %IDX%,User:CreateToken,登录取 Token>"%RUNDIR%\%IDX%.tsv"
 "%EXE%" --api CMES --task User:CreateToken --setting "%SETTING%" > "%RUNDIR%\%IDX%.txt" 2>&1
 
+if "%SN%"=="" goto :skip_sn1
+
 set /a IDX+=1
 echo %IDX%,TestScan:CheckLotSnCode,条码过站校验>"%RUNDIR%\%IDX%.tsv"
 "%EXE%" --api CMES --task TestScan:CheckLotSnCode --args "%SN%" --setting "%SETTING%" > "%RUNDIR%\%IDX%.txt" 2>&1
@@ -124,7 +126,9 @@ echo %IDX%,FeedSheet:GetFeedSheetList,CMES 查投料单>"%RUNDIR%\%IDX%.tsv"
 
 set /a IDX+=1
 echo %IDX%,CMES:MoLotNo,CMES 组合 查批次号>"%RUNDIR%\%IDX%.tsv"
-"%EXE%" --api CMES --task CMES:MoLotNo --args "%SN%" --setting "%SETTING%" > "%RUNDIR%\%IDX%.txt" 2>&1
+"%EXE%" --api CMES --task CMES:MoLotNo --args "%SN%" --setting "%SETTING%" > "%RUNDIR%\%IDX%.txt" 2>&1
+
+:skip_sn1
 
 set /a IDX+=1
 echo %IDX%,CMES:SessionToken,CMES 会话 Token 缓存>"%RUNDIR%\%IDX%.tsv"
