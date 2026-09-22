@@ -1,9 +1,8 @@
 #![allow(non_snake_case)]
-use reqwest::header::{self};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-use super::{header, Cfg, ErrorResultData, Response};
+use super::{session, Cfg, ErrorResultData};
 
 /// # 判断测试工步
 /// ```json
@@ -47,24 +46,13 @@ use super::{header, Cfg, ErrorResultData, Response};
 /// ```
 pub async fn check_lot_sn_code(cfg: &Cfg, token: &str, lot_sn_code: &str) -> e_utils::AnyResult<String> {
   let url = format!("{}/api/services/test/TestScan/CheckLotSnCode", cfg.prodUrl);
-  let headers = header::HeaderMap::from_iter([header(&cfg.tokenName, token)?, header("Content-Type", "application/json")?]);
-  let response = super::client()
-    .post(url)
-    .headers(headers)
-    .json(&json!( {
-      "lotSnCode": lot_sn_code,
-      "stationCode": &cfg.stationCode,
-    }))
-    .send()
-    .await
-    .map_err(|_e| format!("CMES(check_lot_sn_code)： 请检查网络状态!"))?
-    .json::<Response<Option<ErrorResultData>>>()
-    .await?;
-  match (response.success, response.result, response.error) {
-    (true, Some(res), _) if res.isSuccess => Ok(res.msg),
-    (true, Some(res), _) => Err(res.to_str()?.into()),
-    (_, _, Some(err)) => Err(err.to_str()?.into()),
-    _ => Err("未知错误".into()),
+  let body = json!({ "lotSnCode": lot_sn_code, "stationCode": &cfg.stationCode });
+  let value = session::post_json_with_token(cfg, token, &url, &body).await?;
+  let res: ErrorResultData = serde_json::from_value(value)?;
+  if res.isSuccess {
+    Ok(res.msg)
+  } else {
+    Err(res.to_str()?.into())
   }
 }
 
@@ -130,35 +118,26 @@ pub struct SaveProduceTestByAutoTestReq<'a> {
 /// }
 pub async fn save_produce_test_by_auto_test<'a>(cfg: &Cfg, token: &str, req: &SaveProduceTestByAutoTestReq<'a>) -> e_utils::AnyResult<String> {
   let url = format!("{}/api/services/test/TestScan/SaveProduceTestByAutoTest", cfg.prodUrl);
-  let headers = header::HeaderMap::from_iter([header(&cfg.tokenName, token)?, header("Content-Type", "application/json")?]);
-  let response = super::client()
-    .post(url)
-    .headers(headers)
-    .json(&json!( {
-      "lotSnCode": req.lotSnCode,
-      "isPass": req.isPass,
-      "workCenter": &cfg.workCenter,
-      "stationCode": &cfg.stationCode,
-      "testFrameIdNo": &cfg.testFrameidNo,
-      "testTime": req.testTime,
-      "workerNo": req.workerNo,
-      "keyInfo": req.keyInfo,
-      "autoTestVersion": req.autoTestVersion,
-      "testStartDate": req.testStartDate,
-      "testEndDate": req.testEndDate,
-      "testItem": req.testItem,
-    }))
-    .send()
-    .await
-    .map_err(|_e| format!("CMES(save_produce_test_by_auto_test)： 请检查网络状态!"))?
-    .json::<Response<Option<ErrorResultData>>>()
-    .await?;
-
-  match (response.success, response.result, response.error) {
-    (true, Some(res), _) if res.isSuccess => Ok(res.msg),
-    (true, Some(res), _) => Err(res.to_str()?.into()),
-    (_, _, Some(err)) => Err(err.to_str()?.into()),
-    _ => Err("未知错误".into()),
+  let body = json!({
+    "lotSnCode": req.lotSnCode,
+    "isPass": req.isPass,
+    "workCenter": &cfg.workCenter,
+    "stationCode": &cfg.stationCode,
+    "testFrameIdNo": &cfg.testFrameidNo,
+    "testTime": req.testTime,
+    "workerNo": req.workerNo,
+    "keyInfo": req.keyInfo,
+    "autoTestVersion": req.autoTestVersion,
+    "testStartDate": req.testStartDate,
+    "testEndDate": req.testEndDate,
+    "testItem": req.testItem,
+  });
+  let value = session::post_json_with_token(cfg, token, &url, &body).await?;
+  let res: ErrorResultData = serde_json::from_value(value)?;
+  if res.isSuccess {
+    Ok(res.msg)
+  } else {
+    Err(res.to_str()?.into())
   }
 }
 
@@ -288,21 +267,12 @@ impl GetInfoBySnRes {
 /// }
 pub async fn get_info_by_sn(cfg: &Cfg, token: &str, req: &str) -> e_utils::AnyResult<GetInfoBySnRes> {
   let url = format!("{}/api/services/test/TestScan/GetInfoBySn", cfg.prodUrl);
-  let headers = header::HeaderMap::from_iter([header(&cfg.tokenName, token)?]);
-  let response = super::client()
-    .get(url)
-    .headers(headers)
-    .query(&[("code", req)])
-    .send()
-    .await
-    .map_err(|_e| format!("CMES(get_info_by_sn)： 请检查网络状态!"))?
-    .json::<Response<Option<ErrorResultData>>>()
-    .await?;
-  match (response.success, response.result, response.error) {
-    (true, Some(res), _) if res.isSuccess => Ok(serde_json::from_value(res.data)?),
-    (true, Some(res), _) => Err(res.to_str()?.into()),
-    (_, _, Some(err)) => Err(err.to_str()?.into()),
-    _ => Err("未知错误".into()),
+  let value = session::get_json_with_token(cfg, token, &url, &[("code", req)]).await?;
+  let res: ErrorResultData = serde_json::from_value(value)?;
+  if res.isSuccess {
+    Ok(serde_json::from_value(res.data)?)
+  } else {
+    Err(res.to_str()?.into())
   }
 }
 
@@ -329,21 +299,12 @@ pub struct GetProduceDetailsReq<'a> {
 /// #校验异常
 pub async fn get_produce_details<'a>(cfg: &Cfg, token: &str, req: &GetProduceDetailsReq<'a>) -> e_utils::AnyResult<String> {
   let url = format!("{}/api/services/test/TestScan/GetProduceDetails", cfg.prodUrl);
-  let headers = header::HeaderMap::from_iter([header(&cfg.tokenName, token)?]);
-  let response = super::client()
-    .post(url)
-    .headers(headers)
-    .query(&[("produceTestId", req.produceTestId), ("maxResultCount", req.maxResultCount)])
-    .send()
-    .await
-    .map_err(|_e| format!("CMES(get_produce_details)： 请检查网络状态!"))?
-    .json::<Response<Option<ErrorResultData>>>()
-    .await?;
-
-  match (response.success, response.result, response.error) {
-    (true, Some(res), _) if res.isSuccess => Ok(res.data.to_string()),
-    (true, Some(res), _) => Err(res.to_str()?.into()),
-    (_, _, Some(err)) => Err(err.to_str()?.into()),
-    _ => Err("未知错误".into()),
+  let query = [("produceTestId", req.produceTestId), ("maxResultCount", req.maxResultCount)];
+  let value = session::post_query_with_token(cfg, token, &url, &query).await?;
+  let res: ErrorResultData = serde_json::from_value(value)?;
+  if res.isSuccess {
+    Ok(res.data.to_string())
+  } else {
+    Err(res.to_str()?.into())
   }
 }

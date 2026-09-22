@@ -12,10 +12,9 @@
 //!
 //! ⚠ 字段名以接口实际返回为准：页面列名为 序号/物料编码/物料描述/批次号/单机用量/
 //! 应发数量/已发数量/最后更新时间，本模块用多候选 key 兼容提取（见 `pick_*`）。
-use reqwest::header;
 use serde_json::Value;
 
-use super::{header, Cfg, Response};
+use super::{session, Cfg};
 
 /// 投料单条目（PackPrint 建箱用；字段多候选提取，字段名待接口文档确认）
 #[derive(Debug, Clone, Default, serde::Serialize)]
@@ -65,48 +64,23 @@ pub async fn feed_sheet_list(
   mo_lot_no: &str,
 ) -> e_utils::AnyResult<Vec<FeedSheetItem>> {
   let url = format!("{}/api/services/app/ScanHead/GetFeedSheetList", front_url);
-  let headers = header::HeaderMap::from_iter([header(&cfg.tokenName, token)?]);
-  let text = super::client()
-    .get(url)
-    .headers(headers)
-    .query(&[
+  let value = session::get_json_with_token(
+    cfg,
+    token,
+    &url,
+    &[
       ("maxResultCount", "60000"),
       ("moLotNo", mo_lot_no),
       ("origin", "0"),
       ("parentId", parent_id),
       ("skipCount", "0"),
-    ])
-    .send()
-    .await
-    .map_err(|e| format!("CMES(feed_sheet_list)：无法链接 {front_url} 请检查网络状态! ({e})"))?
-    .text()
-    .await
-    .map_err(|e| format!("CMES(feed_sheet_list)：读取响应失败 ({e})"))?;
-  let response: Response<Option<Vec<Value>>> = serde_json::from_str(&text)
-    .map_err(|e| format!("CMES(feed_sheet_list)：响应不是约定 JSON（{e}）；原始响应：{}", snippet(&text)))?;
-  match (response.success, response.result, response.error) {
-    (true, Some(rows), _) => Ok(rows.iter().map(FeedSheetItem::from_json).collect()),
-    (_, _, Some(err)) => Err(format!("CMES(feed_sheet_list)：{}；原始响应：{}", err.message, snippet(&text)).into()),
-    _ => Err(
-      format!(
-        "CMES(feed_sheet_list)：success 非 true 且无 error（常见于鉴权失败/参数不匹配）；原始响应：{}",
-        snippet(&text)
-      )
-      .into(),
-    ),
-  }
+    ],
+  )
+  .await?;
+  let rows: Option<Vec<Value>> = serde_json::from_value(value).unwrap_or(None);
+  Ok(rows.unwrap_or_default().iter().map(FeedSheetItem::from_json).collect())
 }
 
-/// 截断原始响应，避免错误信息过长（鉴权失败时前端常返回非 ABP 结构的 JSON）
-fn snippet(text: &str) -> String {
-  let t = text.trim();
-  let cut: String = t.chars().take(240).collect();
-  if t.chars().count() > 240 {
-    format!("{cut}...")
-  } else {
-    cut
-  }
-}
 
 /// 多候选 key 提取字符串
 fn pick_str(v: &Value, keys: &[&str]) -> Option<String> {

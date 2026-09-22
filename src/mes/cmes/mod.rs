@@ -22,7 +22,14 @@ pub fn ensure_tls() {
 /// 带超时的 HTTP 客户端（默认 10s，避免 MES 服务器不可达时卡死工位流程）
 pub fn client() -> reqwest::Client {
   ensure_tls();
+  // 对接标准 4.1：JSON 接口统一带 Accept；请求体为 JSON 时 reqwest 的 .json() 会自动补 Content-Type
+  let mut default_headers = reqwest::header::HeaderMap::new();
+  default_headers.insert(
+    reqwest::header::ACCEPT,
+    reqwest::header::HeaderValue::from_static("application/json"),
+  );
   reqwest::Client::builder()
+    .default_headers(default_headers)
     .timeout(Duration::from_secs(10))
     .build()
     .expect("构造 reqwest client 失败")

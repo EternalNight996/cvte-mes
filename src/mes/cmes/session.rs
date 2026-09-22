@@ -147,15 +147,29 @@ impl Session {
   }
 }
 
-/// 已有 Token 的一次性 GET（不做 Token 重试）：沿用同一套响应分层，供显式传 Token 的接口复用
-pub async fn get_json_with_token(cfg: &Cfg, token: &str, url: &str, query: &[(&str, &str)]) -> e_utils::AnyResult<Value> {
-  let request = super::client().get(url).headers(auth_headers(cfg, token)?).query(query);
+/// 统一收尾：把「状态码 + 原始响应」按《对接标准》4.3 / 5.2 分层判定
+async fn finish(request: reqwest::RequestBuilder) -> e_utils::AnyResult<Value> {
   let (status, body) = read_body(request).await?;
   match classify(status, &body) {
     Outcome::Ok(value) => Ok(value),
     Outcome::Unauthorized(msg) => Err(format!("CMES：Token 已失效（{msg}），请重新登录获取 Token 后重试").into()),
     Outcome::Failed(msg) => Err(msg.into()),
   }
+}
+
+/// 已有 Token 的一次性 GET（不做 Token 重试）：沿用同一套响应分层，供显式传 Token 的接口复用
+pub async fn get_json_with_token(cfg: &Cfg, token: &str, url: &str, query: &[(&str, &str)]) -> e_utils::AnyResult<Value> {
+  finish(super::client().get(url).headers(auth_headers(cfg, token)?).query(query)).await
+}
+
+/// 已有 Token 的一次性 POST（JSON 请求体）：沿用同一套响应分层
+pub async fn post_json_with_token(cfg: &Cfg, token: &str, url: &str, body: &Value) -> e_utils::AnyResult<Value> {
+  finish(super::client().post(url).headers(auth_headers(cfg, token)?).json(body)).await
+}
+
+/// 已有 Token 的一次性 POST（参数在 query、无请求体）：沿用同一套响应分层
+pub async fn post_query_with_token(cfg: &Cfg, token: &str, url: &str, query: &[(&str, &str)]) -> e_utils::AnyResult<Value> {
+  finish(super::client().post(url).headers(auth_headers(cfg, token)?).query(query)).await
 }
 
 /// 鉴权请求头（标准字段 `x-auth-token`；`Cfg::tokenName` 非空时以现场配置为准）
