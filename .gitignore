@@ -7,7 +7,6 @@
 /scripts/verify*.result.txt
 /scripts/verify*.runs/
 # 含真实生产账号密码的脚本（临时文件，用完即删）
-/scripts/verify2.bat
 /scripts/verify.prod.bat
 # scripts 下的临时打包目录与本地 exe（勿提交）
 /scripts/cvte-mes/
@@ -17,3 +16,4 @@
 /doc/CMES对外接口对接标准.md
 /doc/CVTE_SCM_WIP接口文档v1.0.md
 /doc/ItAPI接口文档.md
+/scripts/verify2.prod.bat
