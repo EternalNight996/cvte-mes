@@ -85,34 +85,63 @@ pub struct MoFactoryReq {
 /// 工单信息
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct MoInfo {
+  #[serde(default, deserialize_with = "null_to_default")]
   pub orgId: String,
+  #[serde(default, deserialize_with = "null_to_default")]
   pub moId: String,
+  #[serde(default, deserialize_with = "null_to_default")]
   pub moName: String,
+  #[serde(default, deserialize_with = "null_to_default")]
   pub finMoName: String,
+  #[serde(default, deserialize_with = "null_to_default")]
   pub lotNumber: String,
+  #[serde(default, deserialize_with = "null_to_default")]
   pub crtTime: i64,
+  #[serde(default, deserialize_with = "null_to_default")]
   pub updTime: i64,
+  #[serde(default, deserialize_with = "null_to_default")]
   pub customerName: String,
+  #[serde(default, deserialize_with = "null_to_default")]
   pub factoryCode: String,
+  #[serde(default, deserialize_with = "null_to_default")]
   pub moProductionMode: String,
+  #[serde(default, deserialize_with = "null_to_default")]
   pub scheduledStartDate: i64,
+  #[serde(default, deserialize_with = "null_to_default")]
   pub moClassCode: String,
+  #[serde(default, deserialize_with = "null_to_default")]
   pub status: String,
+  #[serde(default, deserialize_with = "null_to_default")]
   pub statusName: String,
+  #[serde(default, deserialize_with = "null_to_default")]
   pub moLineId: String,
+  #[serde(default, deserialize_with = "null_to_default")]
   pub lineLotNumber: String,
+  #[serde(default, deserialize_with = "null_to_default")]
   pub lineQuantity: i64,
+  #[serde(default, deserialize_with = "null_to_default")]
   pub isBondedStores: String,
+  #[serde(default, deserialize_with = "null_to_default")]
   pub itemId: String,
+  #[serde(default, deserialize_with = "null_to_default")]
   pub itemCode: String,
+  #[serde(default, deserialize_with = "null_to_default")]
   pub brand: String,
+  #[serde(default, deserialize_with = "null_to_default")]
   pub saleModel: String,
+  #[serde(default, deserialize_with = "null_to_default")]
   pub itemDesc: String,
+  #[serde(default, deserialize_with = "null_to_default")]
   pub middleClassCode: String,
+  #[serde(default, deserialize_with = "null_to_default")]
   pub itemSpec: String,
+  #[serde(default, deserialize_with = "null_to_default")]
   pub pcbaProductClassMn: String,
+  #[serde(default, deserialize_with = "null_to_default")]
   pub completedQuantity: i64,
+  #[serde(default, deserialize_with = "null_to_default")]
   pub uncompletedQuantity: i64,
+  #[serde(default, deserialize_with = "null_to_default")]
   pub completedDate: Option<i64>,
 }
 
@@ -122,15 +151,18 @@ pub async fn query_mo_factory(cfg: &Cfg, req: &MoFactoryReq) -> AnyResult<Vec<Mo
   let body = serde_json::to_value(req)?;
   let params = sign_params(&body);
   let headers = sign::build_headers(&cfg.apikey, &cfg.api_secret, &params)?;
-  let resp = crate::mes::cmes::client()
+  let text = crate::mes::cmes::client()
     .post(url)
     .headers(headers)
     .json(&body)
     .send()
     .await
     .map_err(|_| format!("SCM(query_mo_factory): 无法连接 {} 请检查网络!", cfg.gateway))?
-    .json::<ScmResp<Vec<MoInfo>>>()
-    .await?;
+    .text()
+    .await
+    .map_err(|e| format!("SCM(query_mo_factory): 读取响应失败 ({e})"))?;
+  let resp: ScmResp<Vec<MoInfo>> = serde_json::from_str(&text)
+    .map_err(|e| format!("SCM(query_mo_factory): 响应非约定 JSON：{e}；原始响应：{}", clip(&text)))?;
   match (resp.status.as_str(), resp.message.as_str(), resp.data) {
     ("0", "success", Some(data)) => Ok(data),
     (status, message, _) => Err(format!("SCM 查询工单失败: status={} message={}", status, message).into()),
@@ -152,18 +184,31 @@ pub struct FeedReq {
 /// 投料单信息
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct FeedInfo {
+  #[serde(default, deserialize_with = "null_to_default")]
   pub moId: String,
+  #[serde(default, deserialize_with = "null_to_default")]
   pub lotNumber: String,
+  #[serde(default, deserialize_with = "null_to_default")]
   pub moLineId: String,
+  #[serde(default, deserialize_with = "null_to_default")]
   pub lineLotNumber: String,
+  #[serde(default, deserialize_with = "null_to_default")]
   pub reqLineId: String,
+  #[serde(default, deserialize_with = "null_to_default")]
   pub operationSeqNo: String,
+  #[serde(default, deserialize_with = "null_to_default")]
   pub itemCode: String,
+  #[serde(default, deserialize_with = "null_to_default")]
   pub itemId: String,
+  #[serde(default, deserialize_with = "null_to_default")]
   pub itemName: String,
+  #[serde(default, deserialize_with = "null_to_default")]
   pub unitQty: f64,
+  #[serde(default, deserialize_with = "null_to_default")]
   pub feedQty: f64,
+  #[serde(default, deserialize_with = "null_to_default")]
   pub issuedQty: f64,
+  #[serde(default, deserialize_with = "null_to_default")]
   pub updTime: i64,
 }
 
@@ -173,18 +218,41 @@ pub async fn query_req_common(cfg: &Cfg, req: &FeedReq) -> AnyResult<Vec<FeedInf
   let body = serde_json::to_value(req)?;
   let params = sign_params(&body);
   let headers = sign::build_headers(&cfg.apikey, &cfg.api_secret, &params)?;
-  let resp = crate::mes::cmes::client()
+  let text = crate::mes::cmes::client()
     .post(url)
     .headers(headers)
     .json(&body)
     .send()
     .await
     .map_err(|_| format!("SCM(query_req_common): 无法连接 {} 请检查网络!", cfg.gateway))?
-    .json::<ScmResp<Vec<FeedInfo>>>()
-    .await?;
+    .text()
+    .await
+    .map_err(|e| format!("SCM(query_req_common): 读取响应失败 ({e})"))?;
+  let resp: ScmResp<Vec<FeedInfo>> = serde_json::from_str(&text)
+    .map_err(|e| format!("SCM(query_req_common): 响应非约定 JSON：{e}；原始响应：{}", clip(&text)))?;
   match (resp.status.as_str(), resp.message.as_str(), resp.data) {
     ("0", "success", Some(data)) => Ok(data),
     (status, message, _) => Err(format!("SCM 查询投料单失败: status={} message={}", status, message).into()),
+  }
+}
+
+/// 反序列化时把 null 当作该类型的默认值（SCM 网关会返回 null 字段，声明成非空 String 会解析失败）
+fn null_to_default<'de, D, T>(d: D) -> Result<T, D::Error>
+where
+  D: serde::Deserializer<'de>,
+  T: Default + serde::Deserialize<'de>,
+{
+  Ok(Option::<T>::deserialize(d)?.unwrap_or_default())
+}
+
+/// 截断原始响应便于排查（网关/nginx 常返回 HTML 错误页）
+fn clip(text: &str) -> String {
+  let t = text.trim();
+  let cut: String = t.chars().take(300).collect();
+  if t.chars().count() > 300 {
+    format!("{cut}...")
+  } else {
+    cut
   }
 }
 
