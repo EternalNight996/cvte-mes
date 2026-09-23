@@ -153,6 +153,9 @@ set /a IDX+=1
 echo %IDX%,FeedSheet:GetFeedSheetList(板卡),板卡批次查投料单>"%RUNDIR%\%IDX%.tsv"
 "%EXE%" --api CMES --task FeedSheet:GetFeedSheetList --args "%FRONT_URL2%" "%PARENT_ID2%" "%LOT2%" --setting "%SETTING2%" > "%RUNDIR%\%IDX%.txt" 2>&1
 
+set /a IDX+=1
+echo %IDX%,Diagnose:Auth(板卡),诊断 板卡前端API 鉴权头>"%RUNDIR%\%IDX%.tsv"
+"%EXE%" --api CMES --task Diagnose:Auth --args "%FRONT_URL2%/api/services/pack/Pack/GetOtherListBySn?snCode=%SN2%" --setting "%SETTING2%" > "%RUNDIR%\%IDX%.txt" 2>&1
 :skip_sn2
 
 set /a IDX+=1
