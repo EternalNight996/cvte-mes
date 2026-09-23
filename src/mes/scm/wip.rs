@@ -54,16 +54,12 @@ fn sign_params(body: &Value) -> BTreeMap<String, String> {
   );
   if let Some(obj) = body.as_object() {
     for (k, v) in obj {
+      // 对齐官方 DefaultSignSDK.getPlainText：只有 String 类型参数参与签名串，
+      // null 记为字面量 "null"，数组/数字/布尔一律跳过（放进去会导致与网关重算的签名不一致）。
       let s = match v {
         Value::String(s) => s.clone(),
-        Value::Array(a) => a
-          .iter()
-          .filter_map(|x| x.as_str())
-          .collect::<Vec<_>>()
-          .join(","),
-        Value::Number(n) => n.to_string(),
-        Value::Bool(b) => b.to_string(),
-        other => other.to_string(),
+        Value::Null => "null".to_string(),
+        _ => continue,
       };
       map.insert(k.clone(), s);
     }
@@ -219,14 +215,23 @@ mod tests {
   }
 
   #[test]
-  fn sign_params_joins_arrays_with_comma() {
+  fn sign_params_skips_non_string_like_official_sdk() {
+    // 官方 DefaultSignSDK 只把 String 参数纳入签名串：数组/数字/布尔跳过，null 记为 "null"
     let body = serde_json::json!({
       "lineLotNumberList": ["A", "B"],
-      "lotNumberList": []
+      "lotNumberList": [],
+      "qty": 5,
+      "ok": true,
+      "note": null,
+      "lineLotNumber": "X"
     });
     let params = sign_params(&body);
-    assert_eq!(params.get("lineLotNumberList").unwrap(), "A,B");
-    assert_eq!(params.get("lotNumberList").unwrap(), "");
+    assert!(!params.contains_key("lineLotNumberList"));
+    assert!(!params.contains_key("lotNumberList"));
+    assert!(!params.contains_key("qty"));
+    assert!(!params.contains_key("ok"));
+    assert_eq!(params.get("note").unwrap(), "null");
+    assert_eq!(params.get("lineLotNumber").unwrap(), "X");
     assert!(params.contains_key(TIMESTAMP));
   }
 }
