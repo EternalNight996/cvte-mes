@@ -300,7 +300,10 @@ pub struct GetProduceDetailsReq<'a> {
 pub async fn get_produce_details<'a>(cfg: &Cfg, token: &str, req: &GetProduceDetailsReq<'a>) -> e_utils::AnyResult<String> {
   let url = format!("{}/api/services/test/TestScan/GetProduceDetails", cfg.prodUrl);
   let query = [("produceTestId", req.produceTestId), ("maxResultCount", req.maxResultCount)];
-  let value = session::post_query_with_token(cfg, token, &url, &query).await?;
+  // 用 **GET**（与同组查询接口 GetInfoBySn 一致）：本接口参数在 query、无请求体，
+  // 用 POST 时网关以「POST 且无 Content-Length」判 411 Length Required ——
+  // 此前试过显式补空 body（commit 9a4db2c），实测仍被网关拒（2026-09-22 复测仍 411）。
+  let value = session::get_json_with_token(cfg, token, &url, &query).await?;
   let res: ErrorResultData = serde_json::from_value(value)?;
   if res.isSuccess {
     Ok(res.data.to_string())
