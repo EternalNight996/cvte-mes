@@ -11,43 +11,10 @@ REM ============================================================
 
 REM ---------------- 配置区 1/3：接口信息 ----------------
 set "EXE=%~dp0cvte-mes.exe"
-REM 默认用脚本同目录的 cvte-mes.exe；没有则回退项目 target\release → target\debug
-set "PROD_URL=http://xxx-cmesprod.gz.cvte.cn"
-set "SYS_URL=http://xxx-cmessys.gz.cvte.cn"
-set "USER_NAME=你的账号"
-set "PASS_WORD=你的密码"
-set "TOKEN_NAME=cmes_test_info"
-set "STATION_NAME=测试"
-set "CAUSE_NO=test"
-set "WORK_CENTER=TEST01"
-set "TEST_FRAME_ID=TEST"
-set "STATION_CODE=test"
-
-REM ---------------- 配置区 2/3：被测数据 ----------------
-set "SN=MT81I3GSF-2HG260704720XAG0015"
-set "SN2=B26080686-0A01072"
-set "LOT=HEG-YKCBU26070472"
-set "LOT2=HEG-YKZBU25080273"
-set "FRONT_URL=http://heg-pc-cmes.gz.cvte.cn/frontApi/prod"
-set "PARENT_ID="
 
 REM ---------------- 配置区 3/3：写入类接口（会真写 MES 数据）1=执行 0=跳过 ----------------
 set "RUN_WRITE=0"
 
-REM ---------------- 配置区 4/4：SCM / ItAPI（网关凭据留空则该组用例预期失败） ----------------
-set "SCM_GATEWAY=https://itgw-sit.cvte.com/env-101/scm/scmwip/gw-wip"
-set "SCM_APIKEY="
-set "SCM_SECRET="
-set "SCM_LINE_LOT="
-set "ITAPI_BASE=https://itapi-portal.cvte.com"
-set "ITAPI_APIKEY="
-set "ITAPI_PROD_NUMBER="
-set "ITAPI_LOT_NUMBERS=[]"
-set "ITAPI_MO_LINE_IDS=[]"
-set "MAC_QUERY_URL="
-set "MAC_STATION_CODE="
-set "MAC_TOKEN_NAME="
-set "MAC_APIKEY="
 REM ==================== 以下为脚本本体，不用改 ====================
 REM 尽量切到项目根（只在回退 target 时用到）；scripts 目录被单独拷走时允许失败
 cd /d "%~dp0.." 2>nul
@@ -84,10 +51,39 @@ echo [INFO] 未找到 verify.prod.bat，正在从同目录 etest.db 生成...
 :prod_ready
 if exist "%~dp0verify.prod.bat" call "%~dp0verify.prod.bat"
 
+REM ---------------- prod.bat 缺项兜底（不改 prod.bat，只在其未提供时补默认） ----------------
+REM PARENT_ID：前端接口（FeedSheet 等）必填的租户/组织标识。
+REM 缺了会被服务端拒：ValidationError - The ParentId field is required.
+REM 注意 verify.prod.bat 由 cvte-mes-gencfg 重新生成，所以兜底放在本脚本里，避免被覆盖。
+if not defined PARENT_ID set "PARENT_ID=3e5b8a05ea8b44efb3405d2cdf94663e"
+REM STATION_NAME：SETTING 的 stationName；prod.bat 未提供时用站点码兜底
+if not defined STATION_NAME set "STATION_NAME=%STATION_CODE%"
+
 REM ---------------- 占位符防呆 ----------------
 echo %PROD_URL%%SYS_URL%%FRONT_URL% | findstr /c:"xxx" >nul 2>&1
 if not errorlevel 1 echo [WARN] 配置区还有 xxx 占位符未填（PROD_URL / SYS_URL / FRONT_URL），相关接口会失败
 set "SETTING={\"stationName\":\"%STATION_NAME%\",\"prodUrl\":\"%PROD_URL%\",\"sysUrl\":\"%SYS_URL%\",\"userName\":\"%USER_NAME%\",\"passWord\":\"%PASS_WORD%\",\"tokenName\":\"%TOKEN_NAME%\",\"causeNo\":\"%CAUSE_NO%\",\"workCenter\":\"%WORK_CENTER%\",\"testFrameidNo\":\"%TEST_FRAME_ID%\",\"stationCode\":\"%STATION_CODE%\"}"
+
+REM ============================================================
+REM  板卡组专用账号（与主账号分离）
+REM  板卡条码（B26082334-* 这类）属于另一站点/组织，用主账号查会「条码不存在」，
+REM  必须用板卡专用凭据。配置写在 verify.prod.board.bat（不会被 gencfg 覆盖）。
+REM  任意项未配置 -> 回退主配置，保证不填也能跑（只是板卡用例预期查不到）。
+REM ============================================================
+if exist "%~dp0verify.prod.board.bat" call "%~dp0verify.prod.board.bat"
+if not defined USER_NAME2 set "USER_NAME2=%USER_NAME%"
+if not defined PASS_WORD2 set "PASS_WORD2=%PASS_WORD%"
+if not defined TOKEN_NAME2 set "TOKEN_NAME2=%TOKEN_NAME%"
+if not defined CAUSE_NO2 set "CAUSE_NO2=%CAUSE_NO%"
+if not defined WORK_CENTER2 set "WORK_CENTER2=%WORK_CENTER%"
+if not defined TEST_FRAME_ID2 set "TEST_FRAME_ID2=%TEST_FRAME_ID%"
+if not defined STATION_CODE2 set "STATION_CODE2=%STATION_CODE%"
+if not defined STATION_NAME2 set "STATION_NAME2=%STATION_NAME%"
+if not defined PROD_URL2 set "PROD_URL2=%PROD_URL%"
+if not defined SYS_URL2 set "SYS_URL2=%SYS_URL%"
+if not defined FRONT_URL2 set "FRONT_URL2=%FRONT_URL%"
+if not defined PARENT_ID2 set "PARENT_ID2=%PARENT_ID%"
+set "SETTING2={\"stationName\":\"%STATION_NAME2%\",\"prodUrl\":\"%PROD_URL2%\",\"sysUrl\":\"%SYS_URL2%\",\"userName\":\"%USER_NAME2%\",\"passWord\":\"%PASS_WORD2%\",\"tokenName\":\"%TOKEN_NAME2%\",\"causeNo\":\"%CAUSE_NO2%\",\"workCenter\":\"%WORK_CENTER2%\",\"testFrameidNo\":\"%TEST_FRAME_ID2%\",\"stationCode\":\"%STATION_CODE2%\"}"
 
 set /a IDX+=1
 echo %IDX%,SelfTest:Session,内置自检（会话机制/响应分层/blocking）>"%RUNDIR%\%IDX%.tsv"
@@ -126,7 +122,7 @@ echo %IDX%,FeedSheet:GetFeedSheetList,CMES 查投料单>"%RUNDIR%\%IDX%.tsv"
 
 set /a IDX+=1
 echo %IDX%,CMES:MoLotNo,CMES 组合 查批次号>"%RUNDIR%\%IDX%.tsv"
-"%EXE%" --api CMES --task CMES:MoLotNo --args "%SN%" --setting "%SETTING%" > "%RUNDIR%\%IDX%.txt" 2>&1
+"%EXE%" --api CMES --task CMES:MoLotNo --args "%SN%" --setting "%SETTING%" > "%RUNDIR%\%IDX%.txt" 2>&1
 
 :skip_sn1
 
@@ -139,23 +135,23 @@ if "%SN2%"=="" goto :skip_sn2
 
 set /a IDX+=1
 echo %IDX%,TestScan:CheckLotSnCode(板卡),板卡过站校验>"%RUNDIR%\%IDX%.tsv"
-"%EXE%" --api CMES --task TestScan:CheckLotSnCode --args "%SN2%" --setting "%SETTING%" > "%RUNDIR%\%IDX%.txt" 2>&1
+"%EXE%" --api CMES --task TestScan:CheckLotSnCode --args "%SN2%" --setting "%SETTING2%" > "%RUNDIR%\%IDX%.txt" 2>&1
 
 set /a IDX+=1
 echo %IDX%,TestScan:GetInfoBySn(板卡),板卡查批次>"%RUNDIR%\%IDX%.tsv"
-"%EXE%" --api CMES --task TestScan:GetInfoBySn --args "%SN2%" --setting "%SETTING%" > "%RUNDIR%\%IDX%.txt" 2>&1
+"%EXE%" --api CMES --task TestScan:GetInfoBySn --args "%SN2%" --setting "%SETTING2%" > "%RUNDIR%\%IDX%.txt" 2>&1
 
 set /a IDX+=1
 echo %IDX%,CMES:MoLotNo(板卡),板卡组合查批次号>"%RUNDIR%\%IDX%.tsv"
-"%EXE%" --api CMES --task CMES:MoLotNo --args "%SN2%" --setting "%SETTING%" > "%RUNDIR%\%IDX%.txt" 2>&1
+"%EXE%" --api CMES --task CMES:MoLotNo --args "%SN2%" --setting "%SETTING2%" > "%RUNDIR%\%IDX%.txt" 2>&1
 
 set /a IDX+=1
 echo %IDX%,Pack:GetOtherListBySn(板卡),板卡查组件关联>"%RUNDIR%\%IDX%.tsv"
-"%EXE%" --api CMES --task Pack:GetOtherListBySn --args "%FRONT_URL%" "%SN2%" --setting "%SETTING%" > "%RUNDIR%\%IDX%.txt" 2>&1
+"%EXE%" --api CMES --task Pack:GetOtherListBySn --args "%FRONT_URL2%" "%SN2%" --setting "%SETTING2%" > "%RUNDIR%\%IDX%.txt" 2>&1
 
-set /a IDX+=1
+set /a IDX+=1 
 echo %IDX%,FeedSheet:GetFeedSheetList(板卡),板卡批次查投料单>"%RUNDIR%\%IDX%.tsv"
-"%EXE%" --api CMES --task FeedSheet:GetFeedSheetList --args "%FRONT_URL%" "%PARENT_ID%" "%LOT2%" --setting "%SETTING%" > "%RUNDIR%\%IDX%.txt" 2>&1
+"%EXE%" --api CMES --task FeedSheet:GetFeedSheetList --args "%FRONT_URL2%" "%PARENT_ID2%" "%LOT2%" --setting "%SETTING2%" > "%RUNDIR%\%IDX%.txt" 2>&1
 
 :skip_sn2
 
