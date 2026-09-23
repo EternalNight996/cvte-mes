@@ -1,5 +1,5 @@
 ﻿<#
-  cvte-mes 验证结果渲染器（被 scripts\verify.bat / verify2.bat 调用）
+  cvte-mes 验证结果渲染器（被 scripts\verify.bat 调用）
   读取 <RunDir>\N.tsv（序号,接口,说明）与同序号 N.txt（exe 原始输出），
   输出带颜色的 PASS/FAIL 表格，同时把同样的纯文本结果写到 -ResultPath
   （窗口被误关 / 弹窗吃掉 pause 时，结果依然留在文件里可查）。

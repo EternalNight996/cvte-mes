@@ -7,7 +7,7 @@
   python scripts/gen_prod_cfg.py --id 1 --sn A --lot B --sn2 C --lot2 D --parent-id E
   python scripts/gen_prod_cfg.py --db <etest.db 路径> --out <输出文件>
 
-生成的 verify.prod.bat 会被 scripts/verify.bat / verify2.bat 自动加载（存在即生效），
+生成的 verify.prod.bat 会被 scripts/verify.bat 自动加载（存在即生效），
 因此换账号/换工厂时不必手改脚本本体。
 """
 

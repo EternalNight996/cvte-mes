@@ -147,7 +147,7 @@ Runs all 13 endpoints in one go and prints a colored PASS/FAIL table:
 | File | Purpose |
 | --- | --- |
 | `scripts/verify.bat` | Generic template: fill the config block with your env / account / barcode |
-| `scripts/verify2.bat` | On-site real-account variant (plaintext credentials, gitignored, **never commit**) |
+| `scripts/verify.prod.board.bat` | Second-account (board) config template: blank items fall back to `verify.prod.bat`; used by the board group in `verify.bat` |
 | `scripts/_render.ps1` | Colored table renderer called by the bats, holds no credentials |
 
 ```bat

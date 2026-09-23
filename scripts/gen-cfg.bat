@@ -42,6 +42,6 @@ if "%PICK%"=="" (
 )
 
 echo.
-echo 完成。verify.bat / verify2.bat 会自动加载本目录的 verify.prod.bat
+echo 完成。verify.bat 会自动加载本目录的 verify.prod.bat（第二账号配置见 verify.prod.board.bat）
 echo 注意：该文件含明文密码，请勿外发。
 pause

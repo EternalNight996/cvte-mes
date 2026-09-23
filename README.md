@@ -147,7 +147,7 @@ cargo run -- --api ItAPI --task ItAPI:MacQuery --setting '{"query_url":"https://
 | 文件 | 用途 |
 | --- | --- |
 | `scripts/verify.bat` | 通用模板：配置区填自己的环境 / 账号 / 条码 |
-| `scripts/verify2.bat` | 现场真实账号版（含明文凭据，已在 `.gitignore` 中忽略，**勿提交**） |
+| `scripts/verify.prod.board.bat` | 第二账号（板卡）配置模板：留空项自动回退 `verify.prod.bat`；`verify.bat` 板卡组用它 |
 | `scripts/_render.ps1` | 彩色表格渲染器，被 bat 调用，无凭据 |
 
 ```bat
