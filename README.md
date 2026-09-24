@@ -1,11 +1,13 @@
 <div align="center">
   <h1>🧩 cvte-mes</h1>
-  <p><strong>源控 MES 系统接口库（CMES / SCM WIP / ItAPI 统一封装）</strong></p>
-  <p>登录鉴权 · SN 过站 · 报工回传 · 投料单查询 · 组件关联 · 包装完工数 · MAC 绑定 · 软件信息表</p>
+  <p><strong>源控 MES 系统接口库（CMES / SCM WIP / ItAPI / MAC 统一封装）</strong></p>
+  <p>登录鉴权 · SN 过站 · 报工回传 · 投料单查询 · 组件关联 · 包装完工数 · MAC 绑定 · 软件信息表 · 前端 API 鉴权诊断</p>
 </div>
 
 <div align="center">
-  📄 [MIT](LICENSE) · 📦 [crates.io](https://crates.io/crates/cvte-mes) · 📚 [docs.rs](https://docs.rs/cvte-mes) · 🌟 [Gitee](https://gitee.com/eternalnight996/cvte-mes) · 🧪 35 tests
+
+📄 [MIT](LICENSE) · 📦 [crates.io](https://crates.io/crates/cvte-mes) · 📚 [docs.rs](https://docs.rs/cvte-mes) · 🌟 [Gitee](https://gitee.com/eternalnight996/cvte-mes) · 🐙 [GitHub](https://github.com/eternalnight996/cvte-mes) · 🧪 35 tests · 🚀 v0.2.0-rc.1
+
 </div>
 
 <div align="center">简体中文 | <a href="README.en.md">English</a></div>
@@ -14,13 +16,15 @@
 
 ## ✨ Features
 
-- 🔑 **统一鉴权**：CMES 登录 Token、SCM MD5 签名、ItAPI apikey，三种体系各归其位
-- 🔐 **CMES 对接标准**：Token 缓存（2 小时 / 到期前 5 分钟刷新 / 并发只登录一次）、401 与 `unAuthorizedRequest` 自动重取并最多重试一次、HTTP 500/401/200 分层解析（提示优先 `error.message` → `error.details`）
+- 🔑 **统一鉴权**：CMES 登录 Token、SCM MD5 网关签名、ItAPI apikey，三套体系各归其位
+- 🔐 **CMES 对接标准**：Token 缓存（2 小时 / 到期前 5 分钟刷新 / 并发只登录一次）；HTTP 401 与 `unAuthorizedRequest === true` 自动重取并**最多重试一次**；HTTP 500 / 业务失败 / 协议异常分层解析（提示优先 `error.message` → `error.details` → 纯文本兜底）
 - 🔄 **全异步 + 可选同步**：async 原生支持；GUI 场景启用 `blocking` feature 免运行时（`CmesSession` 会话复用）
-- 📦 **投料单建箱**：`GetFeedSheetList` 真实接口（moLotNo 传批次号或 SN），PackPrint 后端建箱取每箱数量
-- 🧩 **包装（Pack）接口**：`GetOtherListBySn`（SN → 组件关联列表）、`GetSnPackFinishQty`（批次 → 包装完工数，整机/部件分行）
-- 🖥 **CLI 联调工具**：`cargo run -- --api CMES|SCM|ItAPI --task <Task>` 命令行直接验证每个接口；`scripts\verify.bat` 批量跑全部 13 个接口并输出彩色 PASS/FAIL 表格
-- 🐧 **跨平台**：Windows / Linux（Kylin V10 / UOS V20 / Ubuntu 18.04+）
+- 📦 **投料单建箱**：`GetFeedSheetList` 真实接口（moLotNo 传批次号或 SN）
+- 🧩 **包装（Pack）接口**：`GetOtherListBySn`（SN → 组件关联列表）、`GetSnPackFinishQty`（批次 → 包装完工数，整机/部件分行）；空参数前置校验不发请求
+- 🛡 **前端 API 鉴权诊断**：`Diagnose:Auth` 用同一 Token 依次试 `x-auth-token` / `Authorization: Bearer` / `tokenName` / `Cookie` / `token` 五种头访问同一 URL，对比 HTTP 状态码定位认哪种鉴权（Token 值不落日志）
+- 🧪 **内置自检（SelfTest:Session）**：本地 mock 服务端验证「并发只登录一次」「401 自动重取一次」「持续 401 不无限重试」「HTTP 500 取服务端提示」「业务失败读 error.message」「非 JSON 协议异常」「blocking 同步路径」——**不访问生产、不产生业务副作用**
+- 🖥 **CLI 联调工具**：`cargo run -- --api CMES|SCM|ItAPI --task <Task>` 命令行验证每个接口；`scripts\verify.bat` 批量跑全部 19 个用例（含主账号 + 板卡组 + 自检 + 鉴权诊断）并输出彩色 PASS/FAIL 表格
+- 🐧 **跨平台**：Windows / Linux（Kylin V10 / UOS V20 / Ubuntu 18.04+）；reqwest 0.13 + rustls/ring（纯 Rust TLS，免系统 OpenSSL/CMake）
 
 ---
 
@@ -74,30 +78,53 @@ $ cargo test --lib
 running 35 tests
 test mes::cmes::feed_sheet::tests::item_from_json_picks_known_fields ... ok
 test mes::cmes::pack::tests::parse_other_items_reads_documented_fields ... ok
-test result: ok. 34 passed; 0 failed
+test selftest::tests::selftest_checks_pass ... ok
+test result: ok. 35 passed; 0 failed
 ```
 
 ---
 
-## 📊 接口总览
+## 📊 接口总览（19 个用例）
 
-| 系统 | 模块 | 接口（CLI task） | 说明 |
-|------|------|------------------|------|
-| CMES | `mes::cmes` | `User:CreateToken` | 登录（账号带 `@` 走 MD5，否则 Base64） |
-| CMES | `mes::cmes` | `TestScan:CheckLotSnCode` | SN 校验过站 |
-| CMES | `mes::cmes` | `TestScan:GetInfoBySn` | 根据 SN 获取批次信息 |
-| CMES | `mes::cmes` | `TestScan:SaveProduceTestByAutoTest` | 保存测试结果（报工） |
-| CMES | `mes::cmes` | `TestScan:GetProduceDetails` | 查询测试项结果 |
-| CMES | `mes::cmes` | `Record:InsertAtSpi` | 序列扫描过站 |
-| CMES | `mes::cmes` | `ScanHead:GetFeedSheetList` | 查询投料单（moLotNo=批次号/SN） |
-| CMES | `mes::cmes::pack` | `Pack:GetOtherListBySn` | **按产品条码获取组件关联列表**（对接标准 2026-09） |
-| CMES | `mes::cmes::pack` | `Pack:GetSnPackFinishQty` | **按批次获取 SN 包装完工数**（整机/部件分行） |
-| CMES | `mes::cmes::session` | 库函数 `Session` | Token 缓存 + 失效重试 + 响应分层（所有新接口共用） |
-| SCM | `mes::scm::wip` | `SCM:MoFactory` | 查询工单信息（MD5 签名） |
-| SCM | `mes::scm::wip` | `SCM:ReqCommon` | 查询投料单信息（MD5 签名） |
-| ItAPI | `mes::itapi` | `ItAPI:BatchProdDocs` | 批量查询 CPLM 生产文件 |
-| ItAPI | `mes::itapi` | `ItAPI:SoftInfoListV2` | 查询软件信息表 |
-| 通用 | `mes::mac` | 库函数 `query_macs_by_sn` | SN→MAC 绑定查询（防混料，兼容 CMES/ItAPI 鉴权） |
+### CMES（14 个）
+
+| 模块 | `--task` | 说明 |
+|------|----------|------|
+| `cmes::login` | `User:CreateToken` | 登录（账号带 `@` 走 MD5，否则 Base64） |
+| `cmes::test_scan` | `TestScan:CheckLotSnCode` | SN 校验过站 |
+| `cmes::test_scan` | `TestScan:GetInfoBySn` | 根据 SN 获取批次信息 |
+| `cmes::test_scan` | `TestScan:GetProduceDetails` | 查询测试项结果（**GET**，411 修复） |
+| `cmes::test_scan` | `TestScan:SaveProduceTestByAutoTest` | 保存测试结果（报工） |
+| `cmes::record` | `Record:InsertAtSpi` | 序列扫描过站 |
+| `cmes::feed_sheet` | `FeedSheet:GetFeedSheetList` | 查询投料单（moLotNo=批次号/SN） |
+| `cmes::pack` | `Pack:GetOtherListBySn` | **按产品条码获取组件关联列表**（对接标准 2026-09） |
+| `cmes::pack` | `Pack:GetSnPackFinishQty` | **按批次获取 SN 包装完工数**（整机/部件分行） |
+| `cmes` | `CMES:MoLotNo` | 高层封装：SN → 批次号（登录+校验链式） |
+| `cmes` | `CMES:SessionToken` | 返回 Session 缓存的 Token（验证会话层机制） |
+| `cmes` | `CMES:Report` | 高层封装：SN → 报工（登录+校验+报工链式） |
+| `cmes::session` | `SelfTest:Session` | **内置自检**：本地 mock 验证 Token 缓存/重试/分层解析/blocking，**不访问生产** |
+| `cmes::login` | `Diagnose:Auth <url>` | **前端 API 鉴权诊断**：同一 Token 依次用 5 种头访问，定位服务端认哪种鉴权（Token 不落日志） |
+
+### SCM WIP（2 个，MD5 网关签名）
+
+| 模块 | `--task` | 说明 |
+|------|----------|------|
+| `scm::wip` | `SCM:MoFactory` | 查询工单信息（**对齐官方 DefaultSignSDK**：仅 String 参与签名 + 结构体 null 容错 + 错误附原始响应） |
+| `scm::wip` | `SCM:ReqCommon` | 查询投料单信息（同上签名约定） |
+
+### ItAPI（3 个）
+
+| 模块 | `--task` | 说明 |
+|------|----------|------|
+| `itapi` | `ItAPI:BatchProdDocs` | 批量查询 CPLM 生产文件 |
+| `itapi` | `ItAPI:SoftInfoListV2` | 查询软件信息表 |
+| `itapi` / `mac` | `ItAPI:MacQuery` | 按 SN 查询 MAC 绑定 |
+
+### 库函数（任意位置调用）
+
+| 模块 | 函数 | 说明 |
+|------|------|------|
+| `mac` | `query_macs_by_sn` | SN → MAC 绑定查询（防混料，兼容 CMES / ItAPI 鉴权） |
 
 ---
 
@@ -131,7 +158,13 @@ cargo run -- --api CMES --task Pack:GetOtherListBySn --args 'http://heg-pc-cmes.
 # 按批次取 SN 包装完工数（--args[0]=前端 API 根，--args[1]=批次号）
 cargo run -- --api CMES --task Pack:GetSnPackFinishQty --args 'http://heg-pc-cmes.gz.cvte.cn/frontApi/prod' 'HEG-YKCBU2607034701' --setting '<CMES setting>'
 
-# SCM 查询工单信息
+# 前端 API 鉴权诊断：用登录拿到的 Token 依次用 5 种头访问同一 URL，定位服务端认哪种
+cargo run -- --api CMES --task Diagnose:Auth --args 'http://heg-pc-cmes.gz.cvte.cn/frontApi/prod/api/services/pack/Pack/GetOtherListBySn?snCode=U23070429-0A03693' --setting '<CMES setting>'
+
+# 内置自检（本地 mock，零外部依赖）
+cargo run --features input-api,blocking -- --api CMES --task SelfTest:Session
+
+# SCM 查询工单信息（MD5 签名仅 String 类型参与）
 cargo run -- --api SCM --task SCM:MoFactory --setting '{"gateway":"https://itgw-sit.cvte.com/env-101/scm/scmwip/gw-wip","apikey":"<应用ID>","api_secret":"<密钥>"}' --args '{"lineLotNumber":"HEG-SKZBU23070075"}'
 
 # ItAPI 按 SN 查询绑定 MAC
@@ -142,13 +175,17 @@ cargo run -- --api ItAPI --task ItAPI:MacQuery --setting '{"query_url":"https://
 
 ## 🧪 批量验证脚本（scripts/）
 
-一次跑完全部 13 个接口，输出彩色 PASS/FAIL 表格：
+一次跑完全部 19 个用例（主账号 + 板卡组 + 自检 + 鉴权诊断），输出彩色 PASS/FAIL 表格：
 
-| 文件 | 用途 |
-| --- | --- |
-| `scripts/verify.bat` | 通用模板：配置区填自己的环境 / 账号 / 条码 |
-| `scripts/verify.prod.board.bat` | 第二账号（板卡）配置模板：留空项自动回退 `verify.prod.bat`；`verify.bat` 板卡组用它 |
-| `scripts/_render.ps1` | 彩色表格渲染器，被 bat 调用，无凭据 |
+| 文件 | 用途 | 凭据 |
+| --- | --- | --- |
+| `scripts/verify.bat` | 通用模板：调 `verify.prod.bat` + 自动从 `etest.db` 生成（若 `cvte-mes-gencfg.exe` 在场） | 无（外引） |
+| `scripts/verify.prod.bat` | **生产配置**：账号 / 域名 / 条码；由 `cvte-mes-gencfg.exe` 生成 | ✅ 含凭据，已 gitignore |
+| `scripts/verify.prod.board.bat` | **板卡组配置**：与主账号分离的站点/账号（板卡条码归属另一站点/组织，必须独立账号） | ✅ 含凭据，已 gitignore |
+| `scripts/gen-cfg.bat` | 用 `cvte-mes-gencfg.exe` 从 `etest.db` 列出候选 → 选 id → 生成 `verify.prod.bat` | 无 |
+| `scripts/_render.ps1` | 彩色表格渲染器（被 bat 调用） | 无 |
+| `scripts/cvte-mes-gencfg.exe` | 静态 SQLite 读取器（**bundled**，现场无需 Python） | — |
+| `scripts/cvte-mes.exe` | CLI 主程序（拷自 `target\release`） | — |
 
 ```bat
 :: exe 查找顺序：scripts\cvte-mes.exe → target\release → target\debug
@@ -157,12 +194,13 @@ copy target\release\cvte-mes.exe scripts\
 scripts\verify.bat
 ```
 
-- 覆盖范围：CMES 8 个（含 `Record:InsertAtSpi`、`TestScan:SaveProduceTestByAutoTest` 两个写入接口，默认跳过，`RUN_WRITE=1` 才执行）+ SCM 2 个 + ItAPI 3 个
-- 输出：逐项 `PASS`(绿) / `FAIL`(红) / `ERROR`(黄) + 汇总 + 失败详情；每个接口的原始响应留在 `scripts\verify.runs\`
-- 退出码：有失败为 `1`，全绿为 `0`；窗口跑完不自动关闭
-- `scripts\` 可整包拷到内网机器直接双击运行（不依赖项目根）
-
----
+- **覆盖范围**：CMES 8 个主账号用例 + 板卡组 5 个用例（含 `Diagnose:Auth` 鉴权诊断）+ 自检 1 个 + SCM 2 个 + ItAPI 3 个 = **19 个**；其中 `Record:InsertAtSpi` / `TestScan:SaveProduceTestByAutoTest` / `CMES:Report` 三个写入接口默认跳过，`RUN_WRITE=1` 才执行
+- **生产配置自动加载**：`verify.bat` 检测到 `verify.prod.bat` 自动 call；缺失且同目录有 `cvte-mes-gencfg.exe` + `etest.db` 时自动生成；主配置缺项由脚本兜底（如 `PARENT_ID` 默认值）
+- **板卡组双账号**：`verify.prod.board.bat` 中任意项未配置 → 自动回退主配置；板卡条码（B26082334-* 这类）必须用板卡专用凭据
+- **域名兜底**：`PROD_URL2` / `SYS_URL2` / `FRONT_URL2` 未配置时回退到 `PROD_URL` / `SYS_URL` / `FRONT_URL`
+- **输出**：逐项 `PASS`(绿) / `FAIL`(红) / `ERROR`(黄) + 汇总 + 失败详情；每个接口的原始响应留在 `scripts\verify.runs\`；本轮日志按 `logs\<N>\` 归档（result.txt + runs 全量）
+- **退出码**：有失败为 `1`，全绿为 `0`；窗口跑完不自动关闭
+- **可整包拷贝**：`scripts\` 拷到内网机器直接双击运行（不依赖项目根）
 
 ### 内置自检（不依赖生产环境）
 
@@ -171,6 +209,20 @@ scripts\verify.bat
 ```bat
 cargo run --features input-api,blocking -- --api CMES --task SelfTest:Session
 ```
+
+覆盖 9 项检查（任意一项失败 `cargo test` 即红）：
+
+| # | 检查 | 对应约定 |
+|---|------|----------|
+| 1 | 连续取 Token 只登录一次且值相同 | 文档 6 · Token 缓存 |
+| 2 | 4 个并发取 Token 仍只登录一次 | 文档 6 · 并发只登录一次 |
+| 3 | HTTP 401 → 自动重取并重试原请求一次 → 成功 | 文档 4.3 / 5.2 |
+| 4 | 持续 401 时只刷新一次即报错（不无限重试） | 文档 5.2 |
+| 5 | 显式 Token 路径把 401 识别为「Token 已失效」 | 文档 4.3 |
+| 6 | HTTP 500 读取服务端提示（不解析 result） | 文档 4.3 顺序 1 |
+| 7 | HTTP 200 且 success=false → 用 error.message | 文档 4.3 顺序 3 |
+| 8 | HTTP 200 但非 JSON → 协议异常 | 文档 4.3 顺序 6 |
+| 9 | blocking 同步路径可用（需 blocking feature） | GUI 场景 |
 
 ### 生产配置来源（现场无需 Python）
 
@@ -208,11 +260,33 @@ cargo build --release --features input-api,blocking
 
 ---
 
+## 📁 目录结构
+
+```
+cvte-mes/
+├── src/
+│   ├── mes/
+│   │   ├── cmes/        # CMES：login / test_scan / record / feed_sheet / pack / session
+│   │   ├── scm/         # SCM WIP：wip + sign（MD5 网关签名）
+│   │   ├── itapi/       # ItAPI：CPLM 生产文件 / 软件信息表
+│   │   └── mac.rs       # SN→MAC 绑定（兼容 CMES / ItAPI 鉴权）
+│   ├── input/api.rs     # CLI 任务分发
+│   ├── blocking.rs      # 同步封装（feature = "blocking"）
+│   ├── selftest.rs      # 内置自检（本地 mock）
+│   └── bin/gen_cfg.rs   # cvte-mes-gencfg（feature = "gen-cfg"）
+├── scripts/             # 批量验证脚本（见 §"批量验证脚本"）
+├── doc/                 # 对接方接口文档归档（CMES / SCM / ItAPI / 官方签名 Demo）
+└── Cargo.toml
+```
+
+---
+
 ## 🔧 Development
 
 - 提交规范：`feat` / `fix` / `chore` / `docs` / `refactor` / `test` 前缀
 - 新接口：按现有模块模式（Cfg + 请求 + 解析 + 单测）；CMES 新接口统一走 `session::get_json_with_token`，字段名以接口实际返回为准
-- 提交前：`cargo test` 全绿 + `cargo clippy --all-features --all-targets` 无新增警告
+- SCM 签名对齐官方 `DefaultSignSDK`：仅 String 类型参与签名；结构体 `null` 字段容错；错误附原始响应
+- 提交前：`cargo test` 全绿（35/35）+ `cargo clippy --all-features --all-targets` 无新增警告
 
 ---
 
@@ -220,7 +294,7 @@ cargo build --release --features input-api,blocking
 
 | 版本 | 日期 | 关键改动 |
 |---|---|---|
-| **v0.2.0-rc.1** | 2026-09-20 | **《CMES 对外接口对接标准》补全**：新增 `pack` 模块 `GetOtherListBySn`（SN → 组件关联列表）/ `GetSnPackFinishQty`（批次 → 包装完工数，整机/部件分行）；新增 `session` 模块——Token 缓存（2 小时、到期前 5 分钟刷新、并发只登录一次）+ HTTP 401 与 `unAuthorizedRequest` 自动重取并**最多重试一次** + HTTP 500/401/200/未约定/非 JSON 分层解析（提示优先 `error.message` → `error.details`）；CLI 新增 `Pack:*` 两个 task；blocking 新增 `CmesSession` 会话；测试 16 → 34；新增 `scripts/` 批量验证脚本（13 个接口彩色 PASS/FAIL 表格）；修 SCM/ItAPI 缺 rustls provider 直接 panic |
+| **v0.2.0-rc.1** | 2026-09-20 | **《CMES 对外接口对接标准》补全**：新增 `pack` 模块 `GetOtherListBySn`（SN → 组件关联列表）/ `GetSnPackFinishQty`（批次 → 包装完工数，整机/部件分行）；新增 `session` 模块——Token 缓存（2 小时、到期前 5 分钟刷新、并发只登录一次）+ HTTP 401 与 `unAuthorizedRequest` 自动重取并**最多重试一次** + HTTP 500/401/200/未约定/非 JSON 分层解析（提示优先 `error.message` → `error.details`）；CLI 新增 `Pack:*` 两个 task；blocking 新增 `CmesSession` 会话；测试 16 → 35；新增 `scripts/` 批量验证脚本（**19 个用例彩色 PASS/FAIL 表格**，主账号 + 板卡组 + 自检 + 鉴权诊断）；新增内置自检 `SelfTest:Session`（本地 mock，9 项检查）；新增前端 API 鉴权诊断 `Diagnose:Auth`（5 种头依次探测）；修 SCM/ItAPI 缺 rustls provider 直接 panic；SCM 签名对齐官方 `DefaultSignSDK`（仅 String 参与 + null 容错 + 原始响应附错）；`GetProduceDetails` 改 GET 修复 411 |
 | v0.1.2 | 2026-08-28 | 高层封装 `cmes::mo_lot_no` / `cmes::report`（登录 → 校验 → 报工链式调用）+ blocking 包装 |
 | v0.1.1 | 2026-08-28 | reqwest 改 rustls + ring（HTTPS 保留且跨平台免 OpenSSL） |
 | v0.1.0 | 2026-08-14 | 首发：CMES（登录/过站/报工/投料单）+ SCM WIP（MD5 签名）+ ItAPI（生产文件/软件信息表）+ MAC 绑定查询 |
@@ -231,4 +305,4 @@ cargo build --release --features input-api,blocking
 
 [MIT](LICENSE)
 
-<div align="center"><sub>Built with ❤️ by EternalNight</sub></div>
+<div align="center"><sub>Built with ❤️ by EternalNight · Gitee + GitHub 同步发布</sub></div>

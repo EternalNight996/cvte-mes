@@ -8,6 +8,7 @@
 /scripts/verify*.runs/
 # 含真实生产账号密码的脚本（临时文件，用完即删）
 /scripts/verify.prod.bat
+/scripts/verify.prod.board.bat
 # scripts 下的临时打包目录与本地 exe（勿提交）
 /scripts/cvte-mes/
 /scripts/cvte-mes.exe

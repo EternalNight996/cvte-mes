@@ -16,7 +16,8 @@ strum = { version = "0.26", features = ["derive"] }
 serde = "1"
 serde_json = "1"
 structopt = { version = "0.3", optional = true }
-e-utils = { version = "0.4", features = [
+# e-utils: crates.io 0.4 的 AnyError = Box<dyn Error> 不 Send(同 etest)
+e-utils = { path = "../e-utils", features = [
   "cmd",
   "fs",
   "parse",
@@ -41,7 +42,7 @@ required-features = ["gen-cfg"]
 
 [dev-dependencies]
 cvte-mes = { path = "./", features = ["input-api"] }
-e-utils = { version = "0.4", features = ["cmd", "fs"] }
+e-utils = { path = "../e-utils", features = ["cmd", "fs"] }
 e-log = { version = "0.4.2", features = ["log"] }
 
 [package]
@@ -54,7 +55,8 @@ edition = "2021"
 rust-version = "1.85.0"
 license-file = "LICENSE"
 readme = "README.md"
-homepage = "https://gitee.com/eternalnight996"
+homepage = "https://gitee.com/eternalnight996/cvte-mes"
+repository = "https://github.com/eternalnight996/cvte-mes"
 categories = []
 documentation = "https://docs.rs"
 include = ["src/", "*.md", "LICENSE", "Cargo.toml", "COPYRIGHT"]
@@ -64,3 +66,7 @@ keywords = ["e-", "mes"]
 [package.metadata.docs.rs]
 rustdoc-args = ["--cfg", "doc_cfg"]
 all-features = true
+
+[patch.crates-io]
+e-utils = { path = "../e-utils" }
+e-log = { path = "../e-log" }

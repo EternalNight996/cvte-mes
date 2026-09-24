@@ -1,11 +1,13 @@
 <div align="center">
   <h1>🧩 cvte-mes</h1>
-  <p><strong>Unified MES interface library (CMES / SCM WIP / ItAPI)</strong></p>
-  <p>Auth · SN station pass · Production reporting · Feed sheet · Component list · Pack finish qty · MAC binding · Software info</p>
+  <p><strong>Unified MES interface library (CMES / SCM WIP / ItAPI / MAC)</strong></p>
+  <p>Auth · SN station pass · Production reporting · Feed sheet · Component list · Pack finish qty · MAC binding · Software info · Front-end API auth diagnose</p>
 </div>
 
 <div align="center">
-  📄 [MIT](LICENSE) · 📦 [crates.io](https://crates.io/crates/cvte-mes) · 📚 [docs.rs](https://docs.rs/cvte-mes) · 🌟 [Gitee](https://gitee.com/eternalnight996/cvte-mes) · 🧪 35 tests
+
+📄 [MIT](LICENSE) · 📦 [crates.io](https://crates.io/crates/cvte-mes) · 📚 [docs.rs](https://docs.rs/cvte-mes) · 🌟 [Gitee](https://gitee.com/eternalnight996/cvte-mes) · 🐙 [GitHub](https://github.com/eternalnight996/cvte-mes) · 🧪 35 tests · 🚀 v0.2.0-rc.1
+
 </div>
 
 <div align="center"><a href="README.md">简体中文</a> | English</div>
@@ -14,13 +16,15 @@
 
 ## ✨ Features
 
-- 🔑 **Unified auth**: CMES login token, SCM MD5 signing, ItAPI apikey — each in its place
-- 🔐 **CMES integration standard**: token cache (2 h / refresh 5 min early / one login for concurrent callers), automatic re-login on HTTP 401 or `unAuthorizedRequest` with **at most one retry**, layered responses for HTTP 500/401/200 (hint taken from `error.message` → `error.details`)
+- 🔑 **Unified auth**: CMES login token, SCM MD5 gateway signing, ItAPI apikey — each in its place
+- 🔐 **CMES integration standard**: token cache (2 h / refresh 5 min early / one login for concurrent callers); automatic re-login on HTTP 401 or `unAuthorizedRequest === true` with **at most one retry**; layered parsing for HTTP 500 / business failure / protocol errors (hint taken from `error.message` → `error.details` → raw body)
 - 🔄 **Async-first + optional blocking**: native async; `blocking` feature for GUI callers (`CmesSession` keeps the token cached)
 - 📦 **Feed sheet for box building**: real `GetFeedSheetList` endpoint (moLotNo accepts batch no. or SN)
-- 🧩 **Pack endpoints**: `GetOtherListBySn` (SN → bound component list), `GetSnPackFinishQty` (batch → packed SN count, split by machine/part)
-- 🖥 **CLI harness**: `cargo run -- --api CMES|SCM|ItAPI --task <Task>` to verify each endpoint on the command line; `scripts\verify.bat` runs all 13 endpoints and prints a colored PASS/FAIL table
-- 🐧 **Cross-platform**: Windows / Linux (Kylin V10 / UOS V20 / Ubuntu 18.04+)
+- 🧩 **Pack endpoints**: `GetOtherListBySn` (SN → bound component list), `GetSnPackFinishQty` (batch → packed SN count, split by machine/part); blank inputs rejected before any HTTP call
+- 🛡 **Front-end API auth diagnose**: `Diagnose:Auth` probes the same URL five times with the same Token but different header names (`x-auth-token` / `Authorization: Bearer` / `tokenName` / `Cookie` / `token`) and reports the HTTP status for each so you can see which auth scheme the front-end accepts (Token value is never logged)
+- 🧪 **Built-in self-test (`SelfTest:Session`)**: local mock server validates the session layer — token cache, one login under concurrency, automatic re-login on 401 with **at most one retry**, HTTP 500 / business failure / non-JSON parsing, and the blocking sync path. **No production access, no business side effects.**
+- 🖥 **CLI harness**: `cargo run -- --api CMES|SCM|ItAPI --task <Task>` to verify each endpoint on the command line; `scripts\verify.bat` runs all 19 cases (main account + board group + self-test + auth diagnose) and prints a colored PASS/FAIL table
+- 🐧 **Cross-platform**: Windows / Linux (Kylin V10 / UOS V20 / Ubuntu 18.04+); reqwest 0.13 + rustls/ring (pure-Rust TLS, no system OpenSSL/CMake required)
 
 ---
 
@@ -74,30 +78,53 @@ $ cargo test --lib
 running 35 tests
 test mes::cmes::feed_sheet::tests::item_from_json_picks_known_fields ... ok
 test mes::cmes::pack::tests::parse_other_items_reads_documented_fields ... ok
-test result: ok. 34 passed; 0 failed
+test selftest::tests::selftest_checks_pass ... ok
+test result: ok. 35 passed; 0 failed
 ```
 
 ---
 
-## 📊 Endpoint overview
+## 📊 Endpoint overview (19 cases)
 
-| System | Module | Endpoint (CLI task) | Description |
-|--------|--------|---------------------|-------------|
-| CMES | `mes::cmes` | `User:CreateToken` | Login (account with `@` uses MD5, otherwise Base64) |
-| CMES | `mes::cmes` | `TestScan:CheckLotSnCode` | SN validation / station pass |
-| CMES | `mes::cmes` | `TestScan:GetInfoBySn` | Batch info by SN |
-| CMES | `mes::cmes` | `TestScan:SaveProduceTestByAutoTest` | Save test result (report) |
-| CMES | `mes::cmes` | `TestScan:GetProduceDetails` | Query test item results |
-| CMES | `mes::cmes` | `Record:InsertAtSpi` | Serial scan station pass |
-| CMES | `mes::cmes` | `ScanHead:GetFeedSheetList` | Feed sheet query (moLotNo = batch/SN) |
-| CMES | `mes::cmes::pack` | `Pack:GetOtherListBySn` | **Component list by product barcode** (2026-09 standard) |
-| CMES | `mes::cmes::pack` | `Pack:GetSnPackFinishQty` | **Packed SN count by batch** (machine/part rows) |
-| CMES | `mes::cmes::session` | function `Session` | Token cache + retry-on-401 + layered response parsing (shared) |
-| SCM | `mes::scm::wip` | `SCM:MoFactory` | MO info (MD5 signed) |
-| SCM | `mes::scm::wip` | `SCM:ReqCommon` | Feed sheet info (MD5 signed) |
-| ItAPI | `mes::itapi` | `ItAPI:BatchProdDocs` | Batch CPLM production docs |
-| ItAPI | `mes::itapi` | `ItAPI:SoftInfoListV2` | Software info table |
-| Generic | `mes::mac` | function `query_macs_by_sn` | SN→MAC binding (anti-mix, CMES/ItAPI auth) |
+### CMES (14)
+
+| Module | `--task` | Description |
+|--------|----------|-------------|
+| `cmes::login` | `User:CreateToken` | Login (account with `@` uses MD5, otherwise Base64) |
+| `cmes::test_scan` | `TestScan:CheckLotSnCode` | SN validation / station pass |
+| `cmes::test_scan` | `TestScan:GetInfoBySn` | Batch info by SN |
+| `cmes::test_scan` | `TestScan:GetProduceDetails` | Test item results (**GET**, 411 fixed) |
+| `cmes::test_scan` | `TestScan:SaveProduceTestByAutoTest` | Save test result (report) |
+| `cmes::record` | `Record:InsertAtSpi` | Serial scan station pass |
+| `cmes::feed_sheet` | `FeedSheet:GetFeedSheetList` | Feed sheet query (moLotNo = batch/SN) |
+| `cmes::pack` | `Pack:GetOtherListBySn` | **Component list by product barcode** (2026-09 standard) |
+| `cmes::pack` | `Pack:GetSnPackFinishQty` | **Packed SN count by batch** (machine/part rows) |
+| `cmes` | `CMES:MoLotNo` | High-level: SN → batch (login+validate chain) |
+| `cmes` | `CMES:SessionToken` | Return the Session-cached Token (proves the session layer) |
+| `cmes` | `CMES:Report` | High-level: SN → report (login+validate+report chain) |
+| `cmes::session` | `SelfTest:Session` | **Built-in self-test**: local mock validates token cache / retry / layered parsing / blocking — **no production access** |
+| `cmes::login` | `Diagnose:Auth <url>` | **Front-end API auth diagnose**: same Token, five header candidates, compare status codes to learn which auth scheme the front-end accepts (Token value never logged) |
+
+### SCM WIP (2, MD5 gateway signing)
+
+| Module | `--task` | Description |
+|--------|----------|-------------|
+| `scm::wip` | `SCM:MoFactory` | MO info (**aligned with the official `DefaultSignSDK`**: only String participates in signing + struct null tolerance + raw response on error) |
+| `scm::wip` | `SCM:ReqCommon` | Feed sheet info (same signing convention) |
+
+### ItAPI (3)
+
+| Module | `--task` | Description |
+|--------|----------|-------------|
+| `itapi` | `ItAPI:BatchProdDocs` | Batch CPLM production files |
+| `itapi` | `ItAPI:SoftInfoListV2` | Software info table |
+| `itapi` / `mac` | `ItAPI:MacQuery` | MAC binding by SN |
+
+### Library functions (call anywhere)
+
+| Module | Function | Description |
+|--------|----------|-------------|
+| `mac` | `query_macs_by_sn` | SN → MAC binding (anti-mix, CMES/ItAPI auth compatible) |
 
 ---
 
@@ -131,7 +158,13 @@ cargo run -- --api CMES --task Pack:GetOtherListBySn --args 'http://heg-pc-cmes.
 # Packed SN count by batch (--args[0]=front-end API root, --args[1]=batch no.)
 cargo run -- --api CMES --task Pack:GetSnPackFinishQty --args 'http://heg-pc-cmes.gz.cvte.cn/frontApi/prod' 'HEG-YKCBU2607034701' --setting '<CMES setting>'
 
-# SCM MO query
+# Front-end API auth diagnose: probe the same URL with five header candidates using one Token
+cargo run -- --api CMES --task Diagnose:Auth --args 'http://heg-pc-cmes.gz.cvte.cn/frontApi/prod/api/services/pack/Pack/GetOtherListBySn?snCode=U23070429-0A03693' --setting '<CMES setting>'
+
+# Built-in self-test (local mock, zero external dependencies)
+cargo run --features input-api,blocking -- --api CMES --task SelfTest:Session
+
+# SCM MO query (MD5 signing, only String participates)
 cargo run -- --api SCM --task SCM:MoFactory --setting '{"gateway":"https://itgw-sit.cvte.com/env-101/scm/scmwip/gw-wip","apikey":"<appId>","api_secret":"<secret>"}' --args '{"lineLotNumber":"HEG-SKZBU23070075"}'
 
 # ItAPI MAC query by SN
@@ -142,13 +175,17 @@ cargo run -- --api ItAPI --task ItAPI:MacQuery --setting '{"query_url":"https://
 
 ## 🧪 Batch verification script (scripts/)
 
-Runs all 13 endpoints in one go and prints a colored PASS/FAIL table:
+Runs all 19 cases in one go (main account + board group + self-test + auth diagnose) and prints a colored PASS/FAIL table:
 
-| File | Purpose |
-| --- | --- |
-| `scripts/verify.bat` | Generic template: fill the config block with your env / account / barcode |
-| `scripts/verify.prod.board.bat` | Second-account (board) config template: blank items fall back to `verify.prod.bat`; used by the board group in `verify.bat` |
-| `scripts/_render.ps1` | Colored table renderer called by the bats, holds no credentials |
+| File | Purpose | Credentials |
+| --- | --- | --- |
+| `scripts/verify.bat` | Generic template; loads it or auto-generates from `etest.db` when `cvte-mes-gencfg.exe` is present | none (external) |
+| `scripts/verify.prod.bat` | **Production config**: account / host / barcodes; generated by `cvte-mes-gencfg.exe` | ✅ contains credentials, gitignored |
+| `scripts/verify.prod.board.bat` | **Board-group config**: a separate site/account for board barcodes (which belong to a different site/organization) | ✅ contains credentials, gitignored |
+| `scripts/gen-cfg.bat` | List candidates from `etest.db` → pick an id → write `verify.prod.bat` | none |
+| `scripts/_render.ps1` | Colored table renderer (called by the bats) | none |
+| `scripts/cvte-mes-gencfg.exe` | Static SQLite reader (**bundled**, no Python needed on site) | — |
+| `scripts/cvte-mes.exe` | CLI main binary (copied from `target\release`) | — |
 
 ```bat
 :: exe lookup order: scripts\cvte-mes.exe -> target\release -> target\debug
@@ -157,12 +194,13 @@ copy target\release\cvte-mes.exe scripts\
 scripts\verify.bat
 ```
 
-- Coverage: 8 CMES endpoints (including the two write endpoints `Record:InsertAtSpi` and `TestScan:SaveProduceTestByAutoTest`, skipped by default; set `RUN_WRITE=1` to run them) + 2 SCM + 3 ItAPI
-- Output: per-endpoint `PASS` (green) / `FAIL` (red) / `ERROR` (yellow), plus a summary and failure details; raw responses stay in `scripts\verify.runs\`
-- Exit code: `1` when anything failed, `0` when all green; the window stays open when finished
-- The whole `scripts\` folder can be copied to an intranet machine and run by double-click (no project root needed)
-
----
+- **Coverage**: 8 main-account CMES cases + 5 board-group cases (incl. `Diagnose:Auth`) + 1 self-test + 2 SCM + 3 ItAPI = **19**; the three write endpoints (`Record:InsertAtSpi`, `TestScan:SaveProduceTestByAutoTest`, `CMES:Report`) are skipped unless `RUN_WRITE=1`
+- **Production config auto-load**: `verify.bat` calls `verify.prod.bat` when present; if missing and `cvte-mes-gencfg.exe` + `etest.db` sit next to it, the config is regenerated; missing main-config keys fall back inside the script (e.g. default `PARENT_ID`)
+- **Board-group dual account**: any blank key in `verify.prod.board.bat` falls back to the main config; board barcodes (e.g. `B26082334-*`) require the dedicated board credentials
+- **Host fallback**: `PROD_URL2` / `SYS_URL2` / `FRONT_URL2` fall back to `PROD_URL` / `SYS_URL` / `FRONT_URL`
+- **Output**: per-case `PASS` (green) / `FAIL` (red) / `ERROR` (yellow), plus a summary and failure details; raw responses stay in `scripts\verify.runs\`; each run is archived under `logs\<N>\` (result.txt + full runs/)
+- **Exit code**: `1` when anything failed, `0` when all green; the window stays open when finished
+- **Self-contained**: the whole `scripts\` folder can be copied to an intranet machine and run by double-click (no project root needed)
 
 ### Built-in self-test (no production access)
 
@@ -171,6 +209,20 @@ Scenarios a script cannot construct — token cache, one login under concurrency
 ```bat
 cargo run --features input-api,blocking -- --api CMES --task SelfTest:Session
 ```
+
+Nine checks (any failure makes `cargo test` red):
+
+| # | Check | Maps to |
+|---|-------|---------|
+| 1 | Back-to-back token reads → one login, same value | §6 · token cache |
+| 2 | 4 concurrent token reads → still one login | §6 · one login under concurrency |
+| 3 | HTTP 401 → re-login and retry once → success | §4.3 / §5.2 |
+| 4 | Persistent 401 → stop after one retry (no retry storm) | §5.2 |
+| 5 | Explicit-Token path flags 401 as "token invalid" | §4.3 |
+| 6 | HTTP 500 reads the server message (not `result`) | §4.3 order 1 |
+| 7 | HTTP 200 + success=false → use `error.message` | §4.3 order 3 |
+| 8 | HTTP 200 but non-JSON → protocol error | §4.3 order 6 |
+| 9 | Blocking sync path works (requires the `blocking` feature) | GUI scenarios |
 
 ### Where the production config comes from (no Python needed on site)
 
@@ -208,11 +260,33 @@ cargo build --release --features input-api,blocking
 
 ---
 
+## 📁 Project layout
+
+```
+cvte-mes/
+├── src/
+│   ├── mes/
+│   │   ├── cmes/        # CMES: login / test_scan / record / feed_sheet / pack / session
+│   │   ├── scm/         # SCM WIP: wip + sign (MD5 gateway signing)
+│   │   ├── itapi/       # ItAPI: CPLM production docs / software info table
+│   │   └── mac.rs       # SN→MAC binding (CMES / ItAPI auth compatible)
+│   ├── input/api.rs     # CLI task dispatch
+│   ├── blocking.rs      # Sync wrappers (feature = "blocking")
+│   ├── selftest.rs      # Built-in self-test (local mock)
+│   └── bin/gen_cfg.rs   # cvte-mes-gencfg (feature = "gen-cfg")
+├── scripts/             # Batch verification scripts (see §"Batch verification script")
+├── doc/                 # Archived partner docs (CMES / SCM WIP / ItAPI / official signing demo)
+└── Cargo.toml
+```
+
+---
+
 ## 🔧 Development
 
 - Commit prefixes: `feat` / `fix` / `chore` / `docs` / `refactor` / `test`
 - New endpoints: follow the existing module pattern (Cfg + request + parse + unit test); new CMES endpoints go through `session::get_json_with_token`; field names follow actual API responses
-- Before commit: `cargo test` green + `cargo clippy --all-features --all-targets` with no new warnings
+- SCM signing follows the official `DefaultSignSDK`: only String participates; struct `null` fields tolerated; errors carry the raw response
+- Before commit: `cargo test` green (35/35) + `cargo clippy --all-features --all-targets` with no new warnings
 
 ---
 
@@ -220,7 +294,7 @@ cargo build --release --features input-api,blocking
 
 | Version | Date | Highlights |
 |---|---|---|
-| **v0.2.0-rc.1** | 2026-09-20 | **CMES integration standard completed**: new `pack` module — `GetOtherListBySn` (SN → component list) and `GetSnPackFinishQty` (batch → packed SN counts, split by machine/part); new `session` module — token cache (2 h, refresh 5 min early, one login for concurrent callers), automatic re-login on HTTP 401 / `unAuthorizedRequest` with **at most one retry**, and layered parsing for HTTP 500/401/200/uncontracted/non-JSON (hint from `error.message` → `error.details`); two new `Pack:*` CLI tasks; blocking `CmesSession`; tests 16 → 34; new `scripts/` batch verification (13 endpoints, colored PASS/FAIL table); fixed the SCM/ItAPI panic caused by a missing rustls provider |
+| **v0.2.0-rc.1** | 2026-09-20 | **CMES integration standard completed**: new `pack` module — `GetOtherListBySn` (SN → component list) and `GetSnPackFinishQty` (batch → packed SN counts, split by machine/part); new `session` module — token cache (2 h, refresh 5 min early, one login for concurrent callers), automatic re-login on HTTP 401 / `unAuthorizedRequest` with **at most one retry**, and layered parsing for HTTP 500/401/200/uncontracted/non-JSON (hint from `error.message` → `error.details`); two new `Pack:*` CLI tasks; blocking `CmesSession`; tests 16 → 35; new `scripts/` batch verification (**19 cases, colored PASS/FAIL table**, main + board + self-test + auth diagnose); new built-in self-test `SelfTest:Session` (local mock, 9 checks); new front-end API auth diagnose `Diagnose:Auth` (5 header candidates); fixed the SCM/ItAPI panic caused by a missing rustls provider; SCM signing aligned with the official `DefaultSignSDK` (String-only + null tolerance + raw response on error); `GetProduceDetails` switched to GET to fix 411 |
 | v0.1.2 | 2026-08-28 | High-level `cmes::mo_lot_no` / `cmes::report` chains + blocking wrappers |
 | v0.1.1 | 2026-08-28 | reqwest switched to rustls + ring (keeps HTTPS, no system OpenSSL) |
 | v0.1.0 | 2026-08-14 | First release: CMES (login/scan/report/feed sheet) + SCM WIP (MD5 signed) + ItAPI (production docs/software info) + MAC binding query |
@@ -231,4 +305,4 @@ cargo build --release --features input-api,blocking
 
 [MIT](LICENSE)
 
-<div align="center"><sub>Built with ❤️ by EternalNight</sub></div>
+<div align="center"><sub>Built with ❤️ by EternalNight · mirrored on Gitee + GitHub</sub></div>
