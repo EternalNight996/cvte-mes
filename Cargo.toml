@@ -17,7 +17,7 @@ serde = "1"
 serde_json = "1"
 structopt = { version = "0.3", optional = true }
 # e-utils: crates.io 0.4 的 AnyError = Box<dyn Error> 不 Send(同 etest)
-e-utils = { path = "../e-utils", features = [
+e-utils = { version = "0.5", path = "../e-utils", features = [
   "cmd",
   "fs",
   "parse",
@@ -42,7 +42,7 @@ required-features = ["gen-cfg"]
 
 [dev-dependencies]
 cvte-mes = { path = "./", features = ["input-api"] }
-e-utils = { path = "../e-utils", features = ["cmd", "fs"] }
+e-utils = { version = "0.5", path = "../e-utils", features = ["cmd", "fs"] }
 e-log = { version = "0.4.2", features = ["log"] }
 
 [package]
