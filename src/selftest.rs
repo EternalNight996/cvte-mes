@@ -14,6 +14,11 @@
 //! | 8 | HTTP 200 但非 JSON → 协议异常 | 文档 4.3 顺序 6 |
 //! | 9 | 正常 200 成功取 result | 文档 4.3 顺序 4 |
 //! | 10 | blocking 同步路径可用（需 blocking feature） | GUI 场景 |
+//! | 11 | 第 10 章：按条码取投料单物料行解析正确（含 bool/小数） | V1.1 文档 10.3 |
+//! | 12 | 第 11 章：各工步过站行解析正确，`stationCode` 为 `null` 亦不误判 | V1.1 文档 11.4 |
+//! | 13 | 第 12 章：条码详细信息对象解析正确（含 `isIncludeOrder=false` 的空值） | V1.1 文档 12.3 |
+//! | 14 | 第 12 章：**条码不存在（`result` 为 `null`）返回 `Ok(None)` 而不报错** | V1.1 文档 12.2 |
+//! | 15 | 前置校验：空白 `containerName` 直接报参数错误，不发起请求 | V1.1 文档 10.4 |
 //!
 //! CLI：`--api CMES --task SelfTest:Session`
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -135,11 +140,81 @@ fn route(
     ),
     // 非 JSON：协议异常
     "/mock/notjson" => ("200 OK", "<html>not json</html>".to_string()),
+
+    // ---------- 《对接标准 V1.1》第 10~12 章新增接口：按文档真实报文应答 ----------
+    // 10：投料单物料行（应发数 > 0，按物料编码倒序）
+    "/api/services/bas/FeedSheetOrder/GetFeedSheetByContainerName" => (
+      "200 OK",
+      json!({
+        "result": [
+          { "partId": 10001, "partNo": "006.xxx", "partName": "物料描述", "needNum": 12.0,
+            "quantityPerAssembly": 1.0, "isLotControl": true, "moLotNo": "LOT001" },
+          { "partId": 10002, "partNo": "005.yyy", "partName": "包装箱", "needNum": 1.0,
+            "quantityPerAssembly": 0.1, "isLotControl": false, "moLotNo": "LOT001" }
+        ],
+        "success": true, "unAuthorizedRequest": false, "error": null
+      })
+      .to_string(),
+    ),
+    // 11：各工步过站行（含 stationCode 为 null 的一行，验证 Option 容错）
+    "/api/services/bas/ScanHistory/GetStationPassQty" => (
+      "200 OK",
+      json!({
+        "result": [
+          { "moLotNo": "LOT001", "stationId": "8f2b", "stationCode": "B10", "stationName": "组装",
+            "sortNo": 10, "moQty": 200, "type": "整机", "passQty": 120 },
+          { "moLotNo": "LOT001", "stationId": "8f2b", "stationCode": "B10", "stationName": "组装",
+            "sortNo": 10, "moQty": 200, "type": "部件", "passQty": 40 },
+          { "moLotNo": "LOT001", "stationId": "9a3c", "stationCode": null, "stationName": "测试",
+            "sortNo": 20, "moQty": 200, "type": "整机", "passQty": 118 }
+        ],
+        "success": true, "unAuthorizedRequest": false, "error": null
+      })
+      .to_string(),
+    ),
+    // 12：条码详细信息；sn=NOT-EXIST 时按标准 12.2 返回 success=true 且 result=null
+    "/api/services/bas/SerialNoCache/GetInfoBySn" => {
+      if query_param(path, "sn") == "NOT-EXIST" {
+        (
+          "200 OK",
+          json!({ "result": null, "success": true, "unAuthorizedRequest": false, "error": null }).to_string(),
+        )
+      } else {
+        (
+          "200 OK",
+          json!({
+            "result": {
+              "id": "3fa85f64", "orderId": "5b21c0de", "orderNo": "PO20261001001", "moLotNo": "LOT001",
+              "orderQty": 200.0, "qty": 200, "componentBasisId": "9c2d5e1a",
+              "componentBasisCode": "CMP_FACTORY", "sn": "MOCK-SN", "snCode": "MOCK-SN",
+              "reelId": "REEL001", "snNum": 1, "snQty": 1.0, "innerNum": 4.0,
+              "subType": "组件类型编码", "partId": 10001, "partNo": "P-0001", "partName": "物料描述",
+              "productAbName": "产品简称", "productModel": "产品型号A", "sellModel": "销售型号A",
+              "electricParam": "电气参数", "isPuzzle": false,
+              "serialNoRuleSetId": "rule-1", "serialNoHeadId": "head-1"
+            },
+            "success": true, "unAuthorizedRequest": false, "error": null
+          })
+          .to_string(),
+        )
+      }
+    }
     _ => (
       "404 Not Found",
       json!({ "success": false, "error": { "code": 404, "message": "not found" } }).to_string(),
     ),
   }
+}
+
+/// 取查询串里某个参数的值（mock 内部用；自检的取值不含需要百分号解码的字符）
+fn query_param(path: &str, key: &str) -> String {
+  let query = path.split_once('?').map(|(_, q)| q).unwrap_or("");
+  query
+    .split('&')
+    .filter_map(|kv| kv.split_once('='))
+    .find(|(k, _)| *k == key)
+    .map(|(_, v)| v.to_string())
+    .unwrap_or_default()
 }
 
 fn unauthorized_body() -> String {
@@ -323,6 +398,103 @@ async fn run_session_checks(mock: &Mock) -> Vec<Check> {
   match session::get_json_with_token(&cfg, "t", &format!("{}/mock/ok", mock.base), &[]).await {
     Ok(v) => out.push(ok("http200_result", format!("正常响应取到 result：{v}"))),
     Err(e) => out.push(bad("http200_result", format!("正常响应却失败: {e}"))),
+  }
+
+  // ---------- 《对接标准 V1.1》第 10~12 章新增接口：按文档真实报文验证解析 ----------
+
+  // 10. 第 10 章：投料单物料行
+  let s = Session::new(cfg.clone());
+  match s.feed_sheet_by_container_name(&mock.base, "MOCK-SN").await {
+    Ok(rows) if rows.len() == 2 => {
+      let first = &rows[0];
+      if first.partNo == "006.xxx" && first.needNum == 12.0 && first.quantityPerAssembly == 1.0
+        && first.isLotControl && !rows[1].isLotControl
+      {
+        out.push(ok(
+          "bas_feed_sheet_parts",
+          format!("第 10 章解析正确：{} 行，首行 {} 应发 {} 单位用量 {}", rows.len(), first.partNo, first.needNum, first.quantityPerAssembly),
+        ));
+      } else {
+        out.push(bad(
+          "bas_feed_sheet_parts",
+          format!("字段不符：partNo={} needNum={} isLotControl={}", first.partNo, first.needNum, first.isLotControl),
+        ));
+      }
+    }
+    Ok(rows) => out.push(bad("bas_feed_sheet_parts", format!("行数不符（期望 2）：{}", rows.len()))),
+    Err(e) => out.push(bad("bas_feed_sheet_parts", format!("请求失败: {e}"))),
+  }
+
+  // 11. 第 11 章：各工步过站行（第三行 stationCode 为 null）
+  match s.station_pass_qty(&mock.base, "LOT001", Some("B10, B20")).await {
+    Ok(rows) if rows.len() == 3 => {
+      if rows[0].r#type == "整机" && rows[0].passQty == 120 && rows[0].moQty == 200
+        && rows[1].r#type == "部件"
+        && rows[2].stationCode.is_none()
+      {
+        out.push(ok(
+          "bas_station_pass_qty",
+          format!("第 11 章解析正确：{} 行，stationCode 为 null 的行未误判", rows.len()),
+        ));
+      } else {
+        out.push(bad(
+          "bas_station_pass_qty",
+          format!("字段不符：type={} passQty={} 第三行 stationCode={:?}", rows[0].r#type, rows[0].passQty, rows[2].stationCode),
+        ));
+      }
+    }
+    Ok(rows) => out.push(bad("bas_station_pass_qty", format!("行数不符（期望 3）：{}", rows.len()))),
+    Err(e) => out.push(bad("bas_station_pass_qty", format!("请求失败: {e}"))),
+  }
+
+  // 12. 第 12 章：条码详细信息对象
+  match s.serial_no_info(&mock.base, "MOCK-SN", None, None).await {
+    Ok(Some(info)) => {
+      if info.sn == "MOCK-SN" && info.sn == info.snCode && info.orderQty == 200.0
+        && info.partId == Some(10001) && !info.isPuzzle
+      {
+        out.push(ok(
+          "bas_serial_no_info_object",
+          format!("第 12 章解析正确：sn={} 批次 {} 单据 {}", info.sn, info.moLotNo, info.orderNo),
+        ));
+      } else {
+        out.push(bad(
+          "bas_serial_no_info_object",
+          format!("字段不符：sn={} snCode={} orderQty={} partId={:?}", info.sn, info.snCode, info.orderQty, info.partId),
+        ));
+      }
+    }
+    Ok(None) => out.push(bad("bas_serial_no_info_object", "条码存在却返回 None")),
+    Err(e) => out.push(bad("bas_serial_no_info_object", format!("请求失败: {e}"))),
+  }
+
+  // 13. 第 12 章核心约定：条码不存在（success=true 且 result=null）→ Ok(None)，不是异常
+  match s.serial_no_info(&mock.base, "NOT-EXIST", None, None).await {
+    Ok(None) => out.push(ok(
+      "bas_serial_no_info_not_found_is_none",
+      "条码不存在返回 Ok(None)（result 为 null 且 success 为 true，未按异常处理）",
+    )),
+    Ok(Some(info)) => out.push(bad(
+      "bas_serial_no_info_not_found_is_none",
+      format!("条码不存在却解析出对象：sn={}", info.sn),
+    )),
+    Err(e) => out.push(bad(
+      "bas_serial_no_info_not_found_is_none",
+      format!("条码不存在被当成异常（违反标准 12.2）：{e}"),
+    )),
+  }
+
+  // 14. 前置校验：空白 containerName 直接报参数错误，不发起请求
+  match s.feed_sheet_by_container_name(&mock.base, "   ").await {
+    Err(e) if e.to_string().contains("参数错误") => out.push(ok(
+      "bas_blank_param_rejected",
+      format!("空参数前置拒绝且未发起请求：{e}"),
+    )),
+    Err(e) => out.push(bad("bas_blank_param_rejected", format!("报错但未提示参数错误: {e}"))),
+    Ok(rows) => out.push(bad(
+      "bas_blank_param_rejected",
+      format!("空参数竟返回 {} 行（应前置拒绝）", rows.len()),
+    )),
   }
 
   out

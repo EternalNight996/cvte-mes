@@ -23,7 +23,7 @@
 - 🧩 **Pack endpoints**: `GetOtherListBySn` (SN → bound component list), `GetSnPackFinishQty` (batch → packed SN count, split by machine/part); blank inputs rejected before any HTTP call
 - 🏭 **Base-data (bas) endpoints** (standard V1.1 chapters 10–12): `GetFeedSheetByContainerName` (barcode → feed-sheet material rows of its batch, need-qty > 0, sorted by part no. desc), `GetStationPassQty` (batch → per-station pass counts, split by machine/part, deduplicated by barcode), `GetInfoBySn` (barcode detail); **a missing barcode yields `Ok(None)` instead of an error**; pre-checks for `moLotNo` ≤ 100 chars and `stationCodes` ≤ 50 entries
 - 🛡 **Front-end API auth diagnose**: `Diagnose:Auth` probes the same URL five times with the same Token but different header names (`x-auth-token` / `Authorization: Bearer` / `tokenName` / `Cookie` / `token`) and reports the HTTP status for each so you can see which auth scheme the front-end accepts (Token value is never logged)
-- 🧪 **Built-in self-test (`SelfTest:Session`)**: local mock server validates the session layer — token cache, one login under concurrency, automatic re-login on 401 with **at most one retry**, HTTP 500 / business failure / non-JSON parsing, and the blocking sync path. **No production access, no business side effects.**
+- 🧪 **Built-in self-test (`SelfTest:Session`)**: a local mock server answers with the documented payloads and validates the session layer — token cache, one login under concurrency, automatic re-login on 401 with **at most one retry**, HTTP 500 / business failure / non-JSON parsing, plus parsing of the three new V1.1 ch.10–12 endpoints — **15 checks** in total. **No production access, no business side effects.**
 - 🖥 **CLI harness**: `cargo run -- --api CMES|SCM|ItAPI --task <Task>` to verify each endpoint on the command line; `scripts\verify.bat` runs all 28 read-only cases (main account 14 + board group 9 + SCM 2 + ItAPI 3; `RUN_WRITE=1` adds 3 write cases) and prints a colored PASS/FAIL table
 - 🐧 **Cross-platform**: Windows / Linux (Kylin V10 / UOS V20 / Ubuntu 18.04+); reqwest 0.13 + rustls/ring (pure-Rust TLS, no system OpenSSL/CMake required)
 
@@ -234,13 +234,13 @@ scripts\verify.bat
 
 ### Built-in self-test (no production access)
 
-Scenarios a script cannot construct — token cache, one login under concurrency, automatic re-login on 401 with **at most one retry**, layered parsing of HTTP 500 / business failure / non-JSON, and the blocking sync path — are covered by a built-in self-test: it starts a mock server on localhost and **never touches production or writes business data**.
+Scenarios a script cannot construct — token cache, one login under concurrency, automatic re-login on 401 with **at most one retry**, layered parsing of HTTP 500 / business failure / non-JSON, the blocking sync path, plus parsing of the three new V1.1 ch.10–12 endpoints (including the "missing barcode → `Ok(None)`" convention) — are covered by a built-in self-test: it starts a mock server on localhost that answers with the documented payloads, and **never touches production or writes business data**.
 
 ```bat
 cargo run --features input-api,blocking -- --api CMES --task SelfTest:Session
 ```
 
-Ten checks (any failure makes `cargo test` red):
+Fifteen checks (any failure makes `cargo test` red):
 
 | # | Check | Maps to |
 |---|-------|---------|
@@ -253,7 +253,12 @@ Ten checks (any failure makes `cargo test` red):
 | 7 | HTTP 200 + success=false → use `error.message` | §4.3 order 3 |
 | 8 | HTTP 200 but non-JSON → protocol error | §4.3 order 6 |
 | 9 | Plain HTTP 200 success reads `result` | §4.3 order 4 |
-| 10 | Blocking sync path works (requires the `blocking` feature) | GUI scenarios |
+| 10 | Ch.10: barcode → feed-sheet material rows parsed correctly (bool / decimals) | V1.1 §10.3 |
+| 11 | Ch.11: per-station rows parsed correctly, `stationCode: null` not misjudged | V1.1 §11.4 |
+| 12 | Ch.12: barcode detail object parsed correctly | V1.1 §12.3 |
+| 13 | Ch.12: **missing barcode (`result: null`) returns `Ok(None)`, not an error** | V1.1 §12.2 |
+| 14 | Blank `containerName` rejected up-front with no request sent | V1.1 §10.4 |
+| 15 | Blocking sync path works (requires the `blocking` feature) | GUI scenarios |
 
 ### Where the production config comes from (no Python needed on site)
 
@@ -326,7 +331,7 @@ cvte-mes/
 
 | Version | Date | Highlights |
 |---|---|---|
-| **v0.2.0-rc.2** | 2026-10-16 | **CMES integration standard V1.1 (2026-10-14), chapters 10–12 landed**: new `cmes::bas` module — `GetFeedSheetByContainerName` (barcode → feed-sheet material rows of its batch, need-qty > 0, sorted by part no. desc), `GetStationPassQty` (batch → per-station pass counts, machine/part split, deduplicated by barcode, `stationCode` may be `null`), `GetInfoBySn` (barcode detail; **missing barcode returns `result: null` and is not an error — the library returns `Ok(None)`**); all three expose `Session` and blocking `CmesSession` variants; three new CLI tasks `FeedSheetOrder:*` / `ScanHistory:*` / `SerialNoCache:*`; pre-checks for blank `containerName`/`sn`, `moLotNo` ≤ 100 chars, `stationCodes` ≤ 50 entries (plus `B10, B20` → `B10,B20` normalization); new `without_nulls` helper (`null` ≡ missing ≡ default) fixing a whole-row parse failure when `isIncludeOrder=false` returns `null` for the order fields; tests 35 → 48; verification script 19 → 28 read-only cases (+3 write cases); fixed `verify.prod.board.bat` line endings (LF → CRLF, cmd mis-parsed it otherwise) |
+| **v0.2.0-rc.2** | 2026-10-16 | **CMES integration standard V1.1 (2026-10-14), chapters 10–12 landed**: new `cmes::bas` module — `GetFeedSheetByContainerName` (barcode → feed-sheet material rows of its batch, need-qty > 0, sorted by part no. desc), `GetStationPassQty` (batch → per-station pass counts, machine/part split, deduplicated by barcode, `stationCode` may be `null`), `GetInfoBySn` (barcode detail; **missing barcode returns `result: null` and is not an error — the library returns `Ok(None)`**); all three expose `Session` and blocking `CmesSession` variants; three new CLI tasks `FeedSheetOrder:*` / `ScanHistory:*` / `SerialNoCache:*`; pre-checks for blank `containerName`/`sn`, `moLotNo` ≤ 100 chars, `stationCodes` ≤ 50 entries (plus `B10, B20` → `B10,B20` normalization); new `without_nulls` helper (`null` ≡ missing ≡ default) fixing a whole-row parse failure when `isIncludeOrder=false` returns `null` for the order fields; **built-in self-test `SelfTest:Session` grown from 10 to 15 checks** (4 new for the ch.10–12 payloads and the "missing barcode → `Ok(None)`" convention, 1 for blank-parameter rejection); tests 35 → 48; verification script 19 → 28 read-only cases (+3 write cases); fixed `verify.prod.board.bat` line endings (LF → CRLF, cmd mis-parsed it otherwise) |
 | v0.2.0-rc.1 | 2026-09-20 | **CMES integration standard completed**: new `pack` module — `GetOtherListBySn` (SN → component list) and `GetSnPackFinishQty` (batch → packed SN counts, split by machine/part); new `session` module — token cache (2 h, refresh 5 min early, one login for concurrent callers), automatic re-login on HTTP 401 / `unAuthorizedRequest` with **at most one retry**, and layered parsing for HTTP 500/401/200/uncontracted/non-JSON (hint from `error.message` → `error.details`); two new `Pack:*` CLI tasks; blocking `CmesSession`; tests 16 → 35; new `scripts/` batch verification (colored PASS/FAIL table, main + board + self-test + auth diagnose); new built-in self-test `SelfTest:Session` (local mock, 10 checks); new front-end API auth diagnose `Diagnose:Auth` (5 header candidates); fixed the SCM/ItAPI panic caused by a missing rustls provider; SCM signing aligned with the official `DefaultSignSDK` (String-only + null tolerance + raw response on error); `GetProduceDetails` switched to GET to fix 411 |
 | v0.1.2 | 2026-08-28 | High-level `cmes::mo_lot_no` / `cmes::report` chains + blocking wrappers |
 | v0.1.1 | 2026-08-28 | reqwest switched to rustls + ring (keeps HTTPS, no system OpenSSL) |

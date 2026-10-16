@@ -23,7 +23,7 @@
 - 🧩 **包装（Pack）接口**：`GetOtherListBySn`（SN → 组件关联列表）、`GetSnPackFinishQty`（批次 → 包装完工数，整机/部件分行）；空参数前置校验不发请求
 - 🏭 **基础数据（bas）接口**（《CMES 对外接口对接标准 V1.1》第 10~12 章）：`GetFeedSheetByContainerName`（条码 → 所属批次投料单物料行，应发数 > 0、按物料编码倒序）、`GetStationPassQty`（批次 → 各工步过站数，整机/部件分行、按条码去重）、`GetInfoBySn`（条码详细信息）；**条码不存在时 `GetInfoBySn` 返回 `Ok(None)` 而非报错**；`moLotNo` ≤ 100 位、`stationCodes` ≤ 50 个前置校验
 - 🛡 **前端 API 鉴权诊断**：`Diagnose:Auth` 用同一 Token 依次试 `x-auth-token` / `Authorization: Bearer` / `tokenName` / `Cookie` / `token` 五种头访问同一 URL，对比 HTTP 状态码定位认哪种鉴权（Token 值不落日志）
-- 🧪 **内置自检（SelfTest:Session）**：本地 mock 服务端验证「并发只登录一次」「401 自动重取一次」「持续 401 不无限重试」「HTTP 500 取服务端提示」「业务失败读 error.message」「非 JSON 协议异常」「blocking 同步路径」——**不访问生产、不产生业务副作用**
+- 🧪 **内置自检（SelfTest:Session）**：本地 mock 服务端按文档真实报文应答，验证「并发只登录一次」「401 自动重取一次」「持续 401 不无限重试」「HTTP 500 取服务端提示」「业务失败读 error.message」「非 JSON 协议异常」以及 V1.1 第 10~12 章三接口解析——共 **15 项**，**不访问生产、不产生业务副作用**
 - 🖥 **CLI 联调工具**：`cargo run -- --api CMES|SCM|ItAPI --task <Task>` 命令行验证每个接口；`scripts\verify.bat` 批量跑全部 28 个只读用例（主账号 14 + 板卡组 9 + SCM 2 + ItAPI 3；`RUN_WRITE=1` 再追加 3 个写入用例）并输出彩色 PASS/FAIL 表格
 - 🐧 **跨平台**：Windows / Linux（Kylin V10 / UOS V20 / Ubuntu 18.04+）；reqwest 0.13 + rustls/ring（纯 Rust TLS，免系统 OpenSSL/CMake）
 
@@ -233,13 +233,13 @@ scripts\verify.bat
 
 ### 内置自检（不依赖生产环境）
 
-脚本构造不出的场景——Token 缓存、并发只登录一次、401 自动重取并**最多重试一次**、HTTP 500 / 业务失败 / 非 JSON 的分层解析、blocking 同步路径——由程序内置自检覆盖：它在本机起一个 mock 服务端，**不访问生产、不产生业务副作用**。
+脚本构造不出的场景——Token 缓存、并发只登录一次、401 自动重取并**最多重试一次**、HTTP 500 / 业务失败 / 非 JSON 的分层解析、blocking 同步路径，以及新增的 V1.1 第 10~12 章三接口解析（含「条码不存在 → `Ok(None)`」约定）——由程序内置自检覆盖：它在本机起一个 mock 服务端按文档真实报文应答，**不访问生产、不产生业务副作用**。
 
 ```bat
 cargo run --features input-api,blocking -- --api CMES --task SelfTest:Session
 ```
 
-覆盖 10 项检查（任意一项失败 `cargo test` 即红）：
+覆盖 15 项检查（任意一项失败 `cargo test` 即红）：
 
 | # | 检查 | 对应约定 |
 |---|------|----------|
@@ -252,7 +252,12 @@ cargo run --features input-api,blocking -- --api CMES --task SelfTest:Session
 | 7 | HTTP 200 且 success=false → 用 error.message | 文档 4.3 顺序 3 |
 | 8 | HTTP 200 但非 JSON → 协议异常 | 文档 4.3 顺序 6 |
 | 9 | 正常 HTTP 200 成功取 result | 文档 4.3 顺序 4 |
-| 10 | blocking 同步路径可用（需 blocking feature） | GUI 场景 |
+| 10 | 第 10 章：条码 → 投料单物料行解析正确（含 bool / 小数） | V1.1 文档 10.3 |
+| 11 | 第 11 章：各工步过站行解析正确，`stationCode` 为 `null` 亦不误判 | V1.1 文档 11.4 |
+| 12 | 第 12 章：条码详细信息对象解析正确 | V1.1 文档 12.3 |
+| 13 | 第 12 章：**条码不存在（`result` 为 `null`）返回 `Ok(None)` 而非报错** | V1.1 文档 12.2 |
+| 14 | 空白 `containerName` 直接报参数错误，不发起请求 | V1.1 文档 10.4 |
+| 15 | blocking 同步路径可用（需 blocking feature） | GUI 场景 |
 
 ### 生产配置来源（现场无需 Python）
 
@@ -325,7 +330,7 @@ cvte-mes/
 
 | 版本 | 日期 | 关键改动 |
 |---|---|---|
-| **v0.2.0-rc.2** | 2026-10-16 | **《CMES 对外接口对接标准 V1.1（2026-10-14）》第 10~12 章 3 个新接口落地**：新增 `cmes::bas` 模块——`GetFeedSheetByContainerName`（扫描条码 → 所属批次投料单物料行，应发数 > 0、按物料编码倒序）、`GetStationPassQty`（批次 → 各工步过站数，整机/部件分行、按条码去重、`stationCode` 可为 `null`）、`GetInfoBySn`（条码详细信息，**条码不存在时 `result` 为 `null` 且非异常，库返回 `Ok(None)`**）；三接口均支持 `Session` 会话版与 blocking `CmesSession` 版；CLI 新增 `FeedSheetOrder:*` / `ScanHistory:*` / `SerialNoCache:*` 三个 task；前置校验 `containerName`/`sn` 空值、`moLotNo` ≤ 100 位、`stationCodes` ≤ 50 个（并做 `B10, B20` → `B10,B20` 归一化）；新增 `without_nulls` 统一「`null` ≡ 缺失 ≡ 默认值」，修 `isIncludeOrder=false` 时单据类字段为 `null` 导致整行解析失败；测试 35 → 48；验证脚本 19 → 28 个只读用例（+3 写入用例）；修正 `verify.prod.board.bat` 模板换行符（LF → CRLF，否则 cmd 解析错乱） |
+| **v0.2.0-rc.2** | 2026-10-16 | **《CMES 对外接口对接标准 V1.1（2026-10-14）》第 10~12 章 3 个新接口落地**：新增 `cmes::bas` 模块——`GetFeedSheetByContainerName`（扫描条码 → 所属批次投料单物料行，应发数 > 0、按物料编码倒序）、`GetStationPassQty`（批次 → 各工步过站数，整机/部件分行、按条码去重、`stationCode` 可为 `null`）、`GetInfoBySn`（条码详细信息，**条码不存在时 `result` 为 `null` 且非异常，库返回 `Ok(None)`**）；三接口均支持 `Session` 会话版与 blocking `CmesSession` 版；CLI 新增 `FeedSheetOrder:*` / `ScanHistory:*` / `SerialNoCache:*` 三个 task；前置校验 `containerName`/`sn` 空值、`moLotNo` ≤ 100 位、`stationCodes` ≤ 50 个（并做 `B10, B20` → `B10,B20` 归一化）；新增 `without_nulls` 统一「`null` ≡ 缺失 ≡ 默认值」，修 `isIncludeOrder=false` 时单据类字段为 `null` 导致整行解析失败；**内置自检 `SelfTest:Session` 从 10 项扩到 15 项**，新增 4 项覆盖第 10~12 章报文解析与「条码不存在 → `Ok(None)`」约定、1 项空参数前置拒绝；测试 35 → 48；验证脚本 19 → 28 个只读用例（+3 写入用例）；修正 `verify.prod.board.bat` 模板换行符（LF → CRLF，否则 cmd 解析错乱） |
 | v0.2.0-rc.1 | 2026-09-20 | **《CMES 对外接口对接标准》补全**：新增 `pack` 模块 `GetOtherListBySn`（SN → 组件关联列表）/ `GetSnPackFinishQty`（批次 → 包装完工数，整机/部件分行）；新增 `session` 模块——Token 缓存（2 小时、到期前 5 分钟刷新、并发只登录一次）+ HTTP 401 与 `unAuthorizedRequest` 自动重取并**最多重试一次** + HTTP 500/401/200/未约定/非 JSON 分层解析（提示优先 `error.message` → `error.details`）；CLI 新增 `Pack:*` 两个 task；blocking 新增 `CmesSession` 会话；测试 16 → 35；新增 `scripts/` 批量验证脚本（彩色 PASS/FAIL 表格）；新增内置自检 `SelfTest:Session`（本地 mock，10 项检查）；新增前端 API 鉴权诊断 `Diagnose:Auth`（5 种头依次探测）；修 SCM/ItAPI 缺 rustls provider 直接 panic；SCM 签名对齐官方 `DefaultSignSDK`（仅 String 参与 + null 容错 + 原始响应附错）；`GetProduceDetails` 改 GET 修复 411 |
 | v0.1.2 | 2026-08-28 | 高层封装 `cmes::mo_lot_no` / `cmes::report`（登录 → 校验 → 报工链式调用）+ blocking 包装 |
 | v0.1.1 | 2026-08-28 | reqwest 改 rustls + ring（HTTPS 保留且跨平台免 OpenSSL） |
