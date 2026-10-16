@@ -34,6 +34,7 @@ pub fn client() -> reqwest::Client {
     .build()
     .expect("构造 reqwest client 失败")
 }
+pub mod bas;
 pub mod feed_sheet;
 pub mod login;
 pub mod pack;

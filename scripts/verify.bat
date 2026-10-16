@@ -120,6 +120,19 @@ set /a IDX+=1
 echo %IDX%,FeedSheet:GetFeedSheetList,CMES 查投料单>"%RUNDIR%\%IDX%.tsv"
 "%EXE%" --api CMES --task FeedSheet:GetFeedSheetList --args "%FRONT_URL%" "%PARENT_ID%" "%LOT%" --setting "%SETTING%" > "%RUNDIR%\%IDX%.txt" 2>&1
 
+REM ---------------- V1.1 新增：bas 基础数据接口（第 10~12 章） ----------------
+set /a IDX+=1
+echo %IDX%,FeedSheetOrder:GetFeedSheetByContainerName,条码查投料单物料（V1.1-10）>"%RUNDIR%\%IDX%.tsv"
+"%EXE%" --api CMES --task FeedSheetOrder:GetFeedSheetByContainerName --args "%FRONT_URL%" "%SN%" --setting "%SETTING%" > "%RUNDIR%\%IDX%.txt" 2>&1
+
+set /a IDX+=1
+echo %IDX%,ScanHistory:GetStationPassQty,批次查各工步过站数（V1.1-11）>"%RUNDIR%\%IDX%.tsv"
+"%EXE%" --api CMES --task ScanHistory:GetStationPassQty --args "%FRONT_URL%" "%LOT%" --setting "%SETTING%" > "%RUNDIR%\%IDX%.txt" 2>&1
+
+set /a IDX+=1
+echo %IDX%,SerialNoCache:GetInfoBySn,条码详细信息（V1.1-12）>"%RUNDIR%\%IDX%.tsv"
+"%EXE%" --api CMES --task SerialNoCache:GetInfoBySn --args "%FRONT_URL%" "%SN%" --setting "%SETTING%" > "%RUNDIR%\%IDX%.txt" 2>&1
+
 set /a IDX+=1
 echo %IDX%,CMES:MoLotNo,CMES 组合 查批次号>"%RUNDIR%\%IDX%.tsv"
 "%EXE%" --api CMES --task CMES:MoLotNo --args "%SN%" --setting "%SETTING%" > "%RUNDIR%\%IDX%.txt" 2>&1
@@ -152,6 +165,19 @@ echo %IDX%,Pack:GetOtherListBySn(板卡),板卡查组件关联>"%RUNDIR%\%IDX%.t
 set /a IDX+=1 
 echo %IDX%,FeedSheet:GetFeedSheetList(板卡),板卡批次查投料单>"%RUNDIR%\%IDX%.tsv"
 "%EXE%" --api CMES --task FeedSheet:GetFeedSheetList --args "%FRONT_URL2%" "%PARENT_ID2%" "%LOT2%" --setting "%SETTING2%" > "%RUNDIR%\%IDX%.txt" 2>&1
+
+REM ---------------- V1.1 新增：bas 接口（板卡组） ----------------
+set /a IDX+=1
+echo %IDX%,FeedSheetOrder:GetFeedSheetByContainerName(板卡),板卡条码查投料单物料>"%RUNDIR%\%IDX%.tsv"
+"%EXE%" --api CMES --task FeedSheetOrder:GetFeedSheetByContainerName --args "%FRONT_URL2%" "%SN2%" --setting "%SETTING2%" > "%RUNDIR%\%IDX%.txt" 2>&1
+
+set /a IDX+=1
+echo %IDX%,ScanHistory:GetStationPassQty(板卡),板卡批次查各工步过站数>"%RUNDIR%\%IDX%.tsv"
+"%EXE%" --api CMES --task ScanHistory:GetStationPassQty --args "%FRONT_URL2%" "%LOT2%" --setting "%SETTING2%" > "%RUNDIR%\%IDX%.txt" 2>&1
+
+set /a IDX+=1
+echo %IDX%,SerialNoCache:GetInfoBySn(板卡),板卡条码详细信息>"%RUNDIR%\%IDX%.tsv"
+"%EXE%" --api CMES --task SerialNoCache:GetInfoBySn --args "%FRONT_URL2%" "%SN2%" --setting "%SETTING2%" > "%RUNDIR%\%IDX%.txt" 2>&1
 
 set /a IDX+=1
 echo %IDX%,Diagnose:Auth(板卡),诊断 板卡前端API 鉴权头>"%RUNDIR%\%IDX%.tsv"

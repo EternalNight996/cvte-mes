@@ -47,7 +47,7 @@ e-log = { version = "0.4.2", features = ["log"] }
 
 [package]
 name = "cvte-mes"
-version = "0.2.0-rc.1"
+version = "0.2.0-rc.2"
 description = "源控MES系统接口"
 authors = ["Eternal(梦游) <EternalNightYeah2@yeah.net>"]
 edition = "2021"

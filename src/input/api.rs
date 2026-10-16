@@ -140,6 +140,40 @@ pub async fn api(op: Opts) -> e_utils::AnyResult<String> {
           let rows = cmes::feed_sheet::feed_sheet_list(&cfg, &token, front_url, parent_id, mo_lot).await?;
           Ok(serde_json::to_string_pretty(&rows)?)
         }
+        // ---------- 《CMES 对外接口对接标准 V1.1》第 10~12 章新增（前端 bas 接口）----------
+        "FeedSheetOrder:GetFeedSheetByContainerName" => {
+          // --args[0]=前端 API 根，--args[1]=扫描条码（产品条码/容器条码）
+          let front_url = op.args.first().ok_or("请把前端 API 根放在 --args[0]（如 http://xxx-pc-cmes.gz.cvte.cn/frontApi/prod）")?;
+          let container = op.args.get(1).ok_or("请把扫描条码放在 --args[1]")?;
+          let token = cmes::login::login(&cfg).await?;
+          let rows = cmes::bas::feed_sheet_by_container_name(&cfg, &token, front_url, container).await?;
+          Ok(serde_json::to_string_pretty(&rows)?)
+        }
+        "ScanHistory:GetStationPassQty" => {
+          // --args[0]=前端 API 根，--args[1]=批次号，--args[2]=工步编码（可选，逗号分隔，最多 50 个）
+          let front_url = op.args.first().ok_or("请把前端 API 根放在 --args[0]（如 http://xxx-pc-cmes.gz.cvte.cn/frontApi/prod）")?;
+          let lot = op.args.get(1).ok_or("请把批次号放在 --args[1]")?;
+          let codes = op.args.get(2).map(String::as_str);
+          let token = cmes::login::login(&cfg).await?;
+          let rows = cmes::bas::station_pass_qty(&cfg, &token, front_url, lot, codes).await?;
+          Ok(serde_json::to_string_pretty(&rows)?)
+        }
+        "SerialNoCache:GetInfoBySn" => {
+          // --args[0]=前端 API 根，--args[1]=条码；--args[2]=isIncludeOrder（可选 true/false，缺省用服务端默认）；
+          // --args[3]=componentBasisCode（可选，条码类型编码）
+          let front_url = op.args.first().ok_or("请把前端 API 根放在 --args[0]（如 http://xxx-pc-cmes.gz.cvte.cn/frontApi/prod）")?;
+          let sn = op.args.get(1).ok_or("请把条码放在 --args[1]")?;
+          let is_include_order = match op.args.get(2).map(|s| s.trim().to_lowercase()).as_deref() {
+            None | Some("") => None,
+            Some("true") => Some(true),
+            Some("false") => Some(false),
+            Some(other) => return Err(format!("--args[2] isIncludeOrder 需为 true/false，实际为 {other}").into()),
+          };
+          let code = op.args.get(3).map(String::as_str);
+          let token = cmes::login::login(&cfg).await?;
+          let info = cmes::bas::serial_no_info(&cfg, &token, front_url, sn, is_include_order, code).await?;
+          Ok(serde_json::to_string_pretty(&info)?)
+        }
         "CMES:MoLotNo" => {
           let sn = op.args.first().ok_or("请把条码放在 --args[0]")?;
           cmes::mo_lot_no(&cfg, sn).await

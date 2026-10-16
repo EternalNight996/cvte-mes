@@ -102,6 +102,35 @@ impl CmesSession {
   pub fn get_sn_pack_finish_qty(&self, front_url: &str, mo_lot_no: &str) -> AnyResult<Vec<cmes::pack::SnPackFinishQty>> {
     self.rt.block_on(self.inner.get_sn_pack_finish_qty(front_url, mo_lot_no))
   }
+  /// 按条码取批次投料单物料信息（GetFeedSheetByContainerName；服务端按条码限流 10 秒 30 次）
+  pub fn feed_sheet_by_container_name(
+    &self,
+    front_url: &str,
+    container_name: &str,
+  ) -> AnyResult<Vec<cmes::bas::FeedSheetPart>> {
+    self.rt.block_on(self.inner.feed_sheet_by_container_name(front_url, container_name))
+  }
+  /// 按批次取各工步过站数量（GetStationPassQty；`station_codes` 逗号分隔、最多 50 个，传 None 统计全部工步）
+  pub fn station_pass_qty(
+    &self,
+    front_url: &str,
+    mo_lot_no: &str,
+    station_codes: Option<&str>,
+  ) -> AnyResult<Vec<cmes::bas::StationPassRow>> {
+    self.rt.block_on(self.inner.station_pass_qty(front_url, mo_lot_no, station_codes))
+  }
+  /// 按条码取条码详细信息（GetInfoBySn；**条码不存在返回 `Ok(None)`，不是异常**）
+  pub fn serial_no_info(
+    &self,
+    front_url: &str,
+    sn: &str,
+    is_include_order: Option<bool>,
+    component_basis_code: Option<&str>,
+  ) -> AnyResult<Option<cmes::bas::SerialNoInfo>> {
+    self
+      .rt
+      .block_on(self.inner.serial_no_info(front_url, sn, is_include_order, component_basis_code))
+  }
 }
 
 // ---------- MAC（SN→MAC 绑定查询）----------
