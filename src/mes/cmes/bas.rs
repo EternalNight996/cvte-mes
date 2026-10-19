@@ -1119,4 +1119,54 @@ mod tests {
     assert!(failed.contains(&"sorted_by_sort_no"), "应检出 sortNo 逆序：{failed:?}");
     assert!(failed.contains(&"machine_before_part"), "应检出部件排在整机之前：{failed:?}");
   }
+
+  /// 生产报文形态回归（取自 2026-10-19 生产实测 `logs\8`；**值已脱敏，字段名与 JSON 类型保持真实**）
+  ///
+  /// 关键发现：文档把 `qty` 标为 `int`，但生产实际返回浮点（`30.0`）；
+  /// 若按 `i64` 解析会整行失败 —— 本测试锁定「必须用 `f64` 接收」。
+  #[test]
+  fn parses_real_production_payload_shapes() {
+    // 第 12 章：条码详细信息（生产返回的全部 25 个字段）
+    let serial: Value = serde_json::from_str(
+      r#"{
+        "id":"redacted-id","orderId":"redacted-order-id","orderNo":"REDACTED-LOT",
+        "moLotNo":"REDACTED-LOT","orderQty":30.0,"qty":30.0,
+        "componentBasisId":"redacted-cmp","componentBasisCode":"CMP_INNERBOX",
+        "sn":"REDACTED-SN","snCode":"REDACTED-SN","reelId":"REDACTED-SN",
+        "snNum":10,"snQty":1.0,"innerNum":0.0,"subType":"MES_COMPONENT_TYPE_ZJ",
+        "partId":2377756,"partNo":"016.001.0042342","partName":"redacted",
+        "productAbName":"redacted","productModel":"redacted","sellModel":"redacted",
+        "electricParam":"100-240VAC 4A 50/60Hz","isPuzzle":false,
+        "serialNoRuleSetId":"redacted-rule","serialNoHeadId":"redacted-head"
+      }"#,
+    )
+    .unwrap();
+    let info = parse_serial_info(&serial).unwrap().expect("应解析出条码信息");
+    assert_eq!(info.orderQty, 30.0);
+    assert_eq!(info.qty, 30.0, "生产实际把 qty 返回为浮点，必须用 f64 接收");
+    assert_eq!(info.snNum, 10);
+    assert_eq!(info.snQty, 1.0);
+    assert_eq!(info.innerNum, 0.0);
+    assert_eq!(info.partId, Some(2377756));
+    assert_eq!(info.componentBasisCode, "CMP_INNERBOX");
+    assert_eq!(info.subType, "MES_COMPONENT_TYPE_ZJ");
+    assert_eq!(info.sn, info.snCode, "sn 与 snCode 在生产里同值");
+    assert_eq!(info.sn, info.reelId, "reelId 与 sn 同值");
+    assert!(!info.isPuzzle);
+    assert_eq!(info.electricParam.as_deref(), Some("100-240VAC 4A 50/60Hz"));
+
+    // 第 10 章：投料行（partId 整数、needNum/quantityPerAssembly 浮点）
+    let parts: Value = serde_json::from_str(
+      r#"[{"partId":439745,"partNo":"005.001.0000439","partName":"redacted",
+           "needNum":90.0,"quantityPerAssembly":3.0,"isLotControl":false,"moLotNo":"REDACTED-LOT"}]"#,
+    )
+    .unwrap();
+    let rows = parse_feed_sheet_parts(&parts).unwrap();
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].partId, 439745);
+    assert_eq!(rows[0].needNum, 90.0);
+    assert_eq!(rows[0].quantityPerAssembly, 3.0);
+    assert!(!rows[0].isLotControl);
+    assert_eq!(rows[0].moLotNo, "REDACTED-LOT");
+  }
 }
