@@ -24,7 +24,7 @@
 - 🏭 **基础数据（bas）接口**（《CMES 对外接口对接标准 V1.1》第 10~12 章）：`GetFeedSheetByContainerName`（条码 → 所属批次投料单物料行，应发数 > 0、按物料编码倒序）、`GetStationPassQty`（批次 → 各工步过站数，整机/部件分行、按条码去重）、`GetInfoBySn`（条码详细信息）；**条码不存在时 `GetInfoBySn` 返回 `Ok(None)` 而非报错**；`moLotNo` ≤ 100 位、`stationCodes` ≤ 50 个前置校验
 - 🛡 **前端 API 鉴权诊断**：`Diagnose:Auth` 用同一 Token 依次试 `x-auth-token` / `Authorization: Bearer` / `tokenName` / `Cookie` / `token` 五种头访问同一 URL，对比 HTTP 状态码定位认哪种鉴权（Token 值不落日志）
 - 🧪 **内置自检（SelfTest:Session）**：本地 mock 服务端按文档真实报文应答，验证「并发只登录一次」「401 自动重取一次」「持续 401 不无限重试」「HTTP 500 取服务端提示」「业务失败读 error.message」「非 JSON 协议异常」以及 V1.1 第 10~12 章三接口解析——共 **15 项**，**不访问生产、不产生业务副作用**
-- 🖥 **CLI 联调工具**：`cargo run -- --api CMES|SCM|ItAPI --task <Task>` 命令行验证每个接口；`scripts\verify.bat` 批量跑全部 28 个只读用例（主账号 14 + 板卡组 9 + SCM 2 + ItAPI 3；`RUN_WRITE=1` 再追加 3 个写入用例）并输出彩色 PASS/FAIL 表格
+- 🖥 **CLI 联调工具**：`cargo run -- --api CMES|SCM|ItAPI --task <Task>` 命令行验证每个接口；`scripts\verify.bat` 批量跑全部 29 个只读用例（主账号 15 + 板卡组 9 + SCM 2 + ItAPI 3；`RUN_WRITE=1` 再追加 3 个写入用例）并输出彩色 PASS/FAIL 表格
 - 🐧 **跨平台**：Windows / Linux（Kylin V10 / UOS V20 / Ubuntu 18.04+）；reqwest 0.13 + rustls/ring（纯 Rust TLS，免系统 OpenSSL/CMake）
 
 ---
@@ -205,7 +205,7 @@ cargo run -- --api ItAPI --task ItAPI:MacQuery --setting '{"query_url":"https://
 
 ## 🧪 批量验证脚本（scripts/）
 
-一次跑完全部 28 个只读用例（主账号 14 + 板卡组 9 + SCM 2 + ItAPI 3；`RUN_WRITE=1` 再追加 3 个写入用例），输出彩色 PASS/FAIL 表格：
+一次跑完全部 29 个只读用例（主账号 15 + 板卡组 9 + SCM 2 + ItAPI 3；`RUN_WRITE=1` 再追加 3 个写入用例），输出彩色 PASS/FAIL 表格：
 
 | 文件 | 用途 | 凭据 |
 | --- | --- | --- |
@@ -224,7 +224,7 @@ copy target\release\cvte-mes.exe scripts\
 scripts\verify.bat
 ```
 
-- **覆盖范围**：主账号 14 个（`SelfTest:Session`、`User:CreateToken`、6 个只读查询、`FeedSheetOrder`/`ScanHistory`/`SerialNoCache` 三个 V1.1 新增、`CMES:MoLotNo`、`CMES:SessionToken`、`Diagnose:Auth`）+ 板卡组 9 个（同套用例走第二账号/站点，含 `FeedSheetOrder`/`ScanHistory`/`SerialNoCache`）+ SCM 2 个 + ItAPI 3 个 = **28 个**；其中 `Record:InsertAtSpi` / `TestScan:SaveProduceTestByAutoTest` / `CMES:Report` 三个写入接口默认跳过，`RUN_WRITE=1` 才执行（合计 31 个）
+- **覆盖范围**：主账号 15 个（`SelfTest:Session`、`User:CreateToken`、6 个只读查询、`FeedSheetOrder`/`ScanHistory`/`SerialNoCache` 三个 V1.1 新增、`SerialNoCache` 的 `isIncludeOrder=false` 空值形态、`CMES:MoLotNo`、`CMES:SessionToken`、`Diagnose:Auth`）+ 板卡组 9 个（同套用例走第二账号/站点，含 `FeedSheetOrder`/`ScanHistory`/`SerialNoCache`，且 `Diagnose:Auth` 会自动多试候选头名）+ SCM 2 个 + ItAPI 3 个 = **29 个**；其中 `Record:InsertAtSpi` / `TestScan:SaveProduceTestByAutoTest` / `CMES:Report` 三个写入接口默认跳过，`RUN_WRITE=1` 才执行（合计 32 个）
 - **用例跳过条件**：主账号组需配置 `SN`（`SN` 为空则整段跳过，`CMES:SessionToken`/`Diagnose:Auth` 仍执行）；板卡组需配置 `SN2`（为空则整段跳过）
 - **生产配置自动加载**：`verify.bat` 检测到 `verify.prod.bat` 自动 call；缺失且同目录有 `cvte-mes-gencfg.exe` + `etest.db` 时自动生成；主配置缺项由脚本兜底（如 `PARENT_ID` 默认值）
 - **板卡组双账号**：`verify.prod.board.bat` 中任意项未配置 → 自动回退主配置；板卡条码（B26082334-* 这类）必须用板卡专用凭据
@@ -332,7 +332,7 @@ cvte-mes/
 
 | 版本 | 日期 | 关键改动 |
 |---|---|---|
-| **v0.2.0-rc.2** | 2026-10-16 | **《CMES 对外接口对接标准 V1.1（2026-10-14）》第 10~12 章 3 个新接口落地**：新增 `cmes::bas` 模块——`GetFeedSheetByContainerName`（扫描条码 → 所属批次投料单物料行，应发数 > 0、按物料编码倒序）、`GetStationPassQty`（批次 → 各工步过站数，整机/部件分行、按条码去重、`stationCode` 可为 `null`）、`GetInfoBySn`（条码详细信息，**条码不存在时 `result` 为 `null` 且非异常，库返回 `Ok(None)`**）；三接口均支持 `Session` 会话版与 blocking `CmesSession` 版；CLI 新增 `FeedSheetOrder:*` / `ScanHistory:*` / `SerialNoCache:*` 三个 task；前置校验 `containerName`/`sn` 空值、`moLotNo` ≤ 100 位、`stationCodes` ≤ 50 个（并做 `B10, B20` → `B10,B20` 归一化）；新增 `without_nulls` 统一「`null` ≡ 缺失 ≡ 默认值」，修 `isIncludeOrder=false` 时单据类字段为 `null` 导致整行解析失败；**内置自检 `SelfTest:Session` 从 10 项扩到 15 项**，新增 4 项覆盖第 10~12 章报文解析与「条码不存在 → `Ok(None)`」约定、1 项空参数前置拒绝；测试 35 → 48；验证脚本 19 → 28 个只读用例（+3 写入用例）；修正 `verify.prod.board.bat` 模板换行符（LF → CRLF，否则 cmd 解析错乱） |
+| **v0.2.0-rc.2** | 2026-10-16 | **《CMES 对外接口对接标准 V1.1（2026-10-14）》第 10~12 章 3 个新接口落地**：新增 `cmes::bas` 模块——`GetFeedSheetByContainerName`（扫描条码 → 所属批次投料单物料行，应发数 > 0、按物料编码倒序）、`GetStationPassQty`（批次 → 各工步过站数，整机/部件分行、按条码去重、`stationCode` 可为 `null`）、`GetInfoBySn`（条码详细信息，**条码不存在时 `result` 为 `null` 且非异常，库返回 `Ok(None)`**）；三接口均支持 `Session` 会话版与 blocking `CmesSession` 版；CLI 新增 `FeedSheetOrder:*` / `ScanHistory:*` / `SerialNoCache:*` 三个 task；前置校验 `containerName`/`sn` 空值、`moLotNo` ≤ 100 位、`stationCodes` ≤ 50 个（并做 `B10, B20` → `B10,B20` 归一化）；新增 `without_nulls` 统一「`null` ≡ 缺失 ≡ 默认值」，修 `isIncludeOrder=false` 时单据类字段为 `null` 导致整行解析失败；**内置自检 `SelfTest:Session` 从 10 项扩到 15 项**，新增 4 项覆盖第 10~12 章报文解析与「条码不存在 → `Ok(None)`」约定、1 项空参数前置拒绝；测试 35 → 48；验证脚本 19 → 29 个只读用例（+3 写入用例；含 ch12 `isIncludeOrder=false` 空值形态）；`Diagnose:Auth` 支持 `--args[1..]` 追加候选头名并回报响应头（Set-Cookie 仅留 cookie 名）；修正 `verify.prod.board.bat` 模板换行符（LF → CRLF，否则 cmd 解析错乱） |
 | v0.2.0-rc.1 | 2026-09-20 | **《CMES 对外接口对接标准》补全**：新增 `pack` 模块 `GetOtherListBySn`（SN → 组件关联列表）/ `GetSnPackFinishQty`（批次 → 包装完工数，整机/部件分行）；新增 `session` 模块——Token 缓存（2 小时、到期前 5 分钟刷新、并发只登录一次）+ HTTP 401 与 `unAuthorizedRequest` 自动重取并**最多重试一次** + HTTP 500/401/200/未约定/非 JSON 分层解析（提示优先 `error.message` → `error.details`）；CLI 新增 `Pack:*` 两个 task；blocking 新增 `CmesSession` 会话；测试 16 → 35；新增 `scripts/` 批量验证脚本（彩色 PASS/FAIL 表格）；新增内置自检 `SelfTest:Session`（本地 mock，10 项检查）；新增前端 API 鉴权诊断 `Diagnose:Auth`（5 种头依次探测）；修 SCM/ItAPI 缺 rustls provider 直接 panic；SCM 签名对齐官方 `DefaultSignSDK`（仅 String 参与 + null 容错 + 原始响应附错）；`GetProduceDetails` 改 GET 修复 411 |
 | v0.1.2 | 2026-08-28 | 高层封装 `cmes::mo_lot_no` / `cmes::report`（登录 → 校验 → 报工链式调用）+ blocking 包装 |
 | v0.1.1 | 2026-08-28 | reqwest 改 rustls + ring（HTTPS 保留且跨平台免 OpenSSL） |

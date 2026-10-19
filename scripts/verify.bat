@@ -134,6 +134,10 @@ echo %IDX%,SerialNoCache:GetInfoBySn,条码详细信息（V1.1-12 content=null �
 "%EXE%" --api CMES --task SerialNoCache:GetInfoBySn --args "%FRONT_URL%" "%SN%" --setting "%SETTING%" > "%RUNDIR%\%IDX%.txt" 2>&1
 
 set /a IDX+=1
+echo %IDX%,SerialNoCache:GetInfoBySn(isIncludeOrder=false),条码详细信息（不带单据 单据类字段为空即正常）>"%RUNDIR%\%IDX%.tsv"
+"%EXE%" --api CMES --task SerialNoCache:GetInfoBySn --args "%FRONT_URL%" "%SN%" "false" --setting "%SETTING%" > "%RUNDIR%\%IDX%.txt" 2>&1
+
+set /a IDX+=1
 echo %IDX%,CMES:MoLotNo,CMES 组合 查批次号>"%RUNDIR%\%IDX%.tsv"
 "%EXE%" --api CMES --task CMES:MoLotNo --args "%SN%" --setting "%SETTING%" > "%RUNDIR%\%IDX%.txt" 2>&1
 
@@ -180,8 +184,8 @@ echo %IDX%,SerialNoCache:GetInfoBySn(板卡),板卡条码详细信息（null 即
 "%EXE%" --api CMES --task SerialNoCache:GetInfoBySn --args "%FRONT_URL2%" "%SN2%" --setting "%SETTING2%" > "%RUNDIR%\%IDX%.txt" 2>&1
 
 set /a IDX+=1
-echo %IDX%,Diagnose:Auth(板卡),诊断 板卡前端API 鉴权头>"%RUNDIR%\%IDX%.tsv"
-"%EXE%" --api CMES --task Diagnose:Auth --args "%FRONT_URL2%/api/services/pack/Pack/GetOtherListBySn?snCode=%SN2%" --setting "%SETTING2%" > "%RUNDIR%\%IDX%.txt" 2>&1
+echo %IDX%,Diagnose:Auth(板卡),诊断 板卡前端API 鉴权头（自动多试头名）>"%RUNDIR%\%IDX%.tsv"
+"%EXE%" --api CMES --task Diagnose:Auth --args "%FRONT_URL2%/api/services/pack/Pack/GetOtherListBySn?snCode=%SN2%" "cmes_heg_info" "cmes_hegmb_info" "cmes_heg_mb_info" --setting "%SETTING2%" > "%RUNDIR%\%IDX%.txt" 2>&1
 :skip_sn2
 
 set /a IDX+=1
