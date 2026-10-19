@@ -229,20 +229,42 @@ pub async fn api(op: Opts) -> e_utils::AnyResult<String> {
             candidates.push((format!("Cookie:{name}"), "Cookie".to_string(), format!("{name}={token}")));
           }
           for (label, header_name, value) in candidates {
-            let (code, snippet) = match cmes::client().get(url).header(header_name.as_str(), value).send().await {
+            let (code, snippet, resp_headers) = match cmes::client().get(url).header(header_name.as_str(), value).send().await {
               Ok(resp) => {
                 let code = resp.status().as_u16();
+                // 先取响应头再消费 body：401 时 WWW-Authenticate / Set-Cookie(名) / Location
+                // 往往直接暴露前端认哪种凭据；Set-Cookie 只留 cookie 名，会话值不落日志
+                let mut kept: Vec<String> = Vec::new();
+                for (name, value) in resp.headers() {
+                  let n = name.as_str().to_ascii_lowercase();
+                  let v = value.to_str().unwrap_or("").trim();
+                  if n == "set-cookie" {
+                    let cookie_name = v.split('=').next().unwrap_or("").trim();
+                    if !cookie_name.is_empty() {
+                      kept.push(format!("set-cookie:{cookie_name}"));
+                    }
+                  } else if n == "www-authenticate" || n == "location" || n.starts_with("x-") {
+                    let cut: String = v.chars().take(80).collect();
+                    if !cut.is_empty() {
+                      kept.push(format!("{n}:{cut}"));
+                    }
+                  }
+                }
                 let text = resp.text().await.unwrap_or_default();
                 let cut: String = text.trim().chars().take(200).collect();
-                (code, cut)
+                (code, cut, kept)
               }
-              Err(e) => (0u16, format!("请求失败: {e}")),
+              Err(e) => (0u16, format!("请求失败: {e}"), Vec::new()),
             };
-            attempts.push(serde_json::json!({ "header": label, "http": code, "body": snippet }));
+            let mut attempt = serde_json::json!({ "header": label, "http": code, "body": snippet });
+            if !resp_headers.is_empty() {
+              attempt["resp_headers"] = serde_json::json!(resp_headers);
+            }
+            attempts.push(attempt);
           }
           Ok(serde_json::to_string_pretty(&serde_json::json!({
             "url": url,
-            "note": "依次用不同鉴权头访问同一 URL；看哪种返回 200，即可判断前端 API 认什么鉴权（Token 值不落日志）",
+            "note": "依次用不同鉴权头访问同一 URL；看哪种返回 200，即可判断前端 API 认什么鉴权（Token 值不落日志）。resp_headers 只保留 WWW-Authenticate / Location / x-* 以及与 Set-Cookie 的 cookie 名（不保留会话值）",
             "login_token_ok": true,
             "attempts": attempts
           }))?)
