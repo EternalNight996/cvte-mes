@@ -253,6 +253,241 @@ fn root(front_url: &str) -> &str {
   front_url.trim().trim_end_matches('/')
 }
 
+// ==================== GetStationPassQty 闭环验收 ====================
+
+/// 单条闭环校验结果
+#[derive(Debug, Clone, Default, Serialize)]
+pub struct VerifyCheck {
+  pub name: String,
+  pub pass: bool,
+  pub detail: String,
+}
+
+fn chk(name: &str, pass: bool, detail: impl Into<String>) -> VerifyCheck {
+  VerifyCheck {
+    name: name.to_string(),
+    pass,
+    detail: detail.into(),
+  }
+}
+
+/// [`verify_station_pass_qty`] 的验收结果
+///
+/// 验收口径（对接标准 11.1 / 11.2）：
+/// 1. **不传** `stationCodes` → 必须返回该批次的**全部工步**数据
+/// 2. **传** `stationCodes` → 只返回**指定工步**的数据，且与全量结果逐行自洽
+#[derive(Debug, Clone, Default, Serialize)]
+pub struct StationPassQtyVerify {
+  pub moLotNo: String,
+  /// `PASS` 两侧自洽；`FAIL` 不自洽；`NO_DATA` 该批次无过站数据（或被口径全部过滤），无法闭环
+  pub verdict: String,
+  pub all_rows: usize,
+  /// 全量查询里出现的工步编码（去重升序）
+  pub all_station_codes: Vec<String>,
+  /// 本次用于「指定工步」复查的工步编码
+  pub checked_station_codes: Vec<String>,
+  pub filtered_rows: usize,
+  pub checks: Vec<VerifyCheck>,
+}
+
+/// `GetStationPassQty` 闭环验收：**全量查询 → 指定工步复查 → 两侧逐项对比**
+///
+/// - `max_stations`：从全量结果中挑多少个工步做「指定工步」复查；传 0 按 3 处理
+/// - 会发起 **两次** 业务请求（服务端按 `moLotNo` 限流 10 秒 30 次，勿在循环里高频调用）
+///
+/// 覆盖的检查项：
+/// - 全量查询（不传 `stationCodes`）必须返回该批次的全部工步数据
+/// - 指定工步查询只返回被指定的工步
+/// - 每一行（工步, 类型, 过站数）都与全量结果一致
+/// - 指定工步的行数 == 全量结果中对应工步的行数
+/// - 只复查部分工步时，结果行数必须收窄（证明确实在过滤）；复查全部时须等于全量
+pub async fn verify_station_pass_qty(
+  cfg: &Cfg,
+  token: &str,
+  front_url: &str,
+  mo_lot_no: &str,
+  max_stations: usize,
+) -> e_utils::AnyResult<StationPassQtyVerify> {
+  let lot = check_lot(mo_lot_no)?.to_string();
+  let take = if max_stations == 0 { 3 } else { max_stations };
+
+  // 第 1 次：**不传** stationCodes —— 验收「反馈该批次所有工站的数据」
+  let all = station_pass_qty(cfg, token, front_url, &lot, None).await?;
+
+  let mut all_codes: Vec<String> = all
+    .iter()
+    .filter_map(|r| r.stationCode.as_deref())
+    .map(str::trim)
+    .filter(|s| !s.is_empty())
+    .map(str::to_string)
+    .collect();
+  all_codes.sort();
+  all_codes.dedup();
+
+  let mut out = StationPassQtyVerify {
+    moLotNo: lot.clone(),
+    all_rows: all.len(),
+    all_station_codes: all_codes.clone(),
+    ..Default::default()
+  };
+
+  // 该批次无过站数据：闭环无法成立，明确报 NO_DATA，而不是假装通过
+  if all.is_empty() {
+    out.verdict = "NO_DATA".into();
+    out.checks.push(chk(
+      "all_stations_data",
+      false,
+      "全量查询（不传 stationCodes）返回空数组：该批次无符合口径的过站记录，无法完成闭环验收。\
+       请换一个正在生产/有过站数据的批次；若确认该批次应有记录，则需排查是否被「重置（重投/返工）不计入」\
+       或「条码类型仅限工厂条码与高温条码」的口径过滤",
+    ));
+    return Ok(out);
+  }
+
+  out.checks.push(chk(
+    "all_stations_data",
+    true,
+    format!(
+      "全量查询返回 {} 行、{} 个工步：{}",
+      all.len(),
+      all_codes.len(),
+      all_codes.join(",")
+    ),
+  ));
+
+  // 行存在但全部没有工步编码：无法按工步复查
+  if all_codes.is_empty() {
+    out.checks.push(chk(
+      "station_codes_present",
+      false,
+      "全量结果中所有行的 stationCode 均为 null，无法指定工步复查（服务端工步缓存未命中？）",
+    ));
+    out.verdict = "FAIL".into();
+    return Ok(out);
+  }
+
+  if all_codes.len() == 1 {
+    out.checks.push(chk(
+      "multi_station_available",
+      true,
+      format!("该批次仅 {} 个工步（{}），无法体现「过滤收窄」，其余检查照常执行", all_codes.len(), all_codes[0]),
+    ));
+  }
+
+  let checked: Vec<String> = all_codes.iter().take(take).cloned().collect();
+  let codes_arg = checked.join(",");
+  out.checked_station_codes = checked.clone();
+
+  // 第 2 次：**传** stationCodes —— 验收「支持返回指定工站」
+  let filtered = station_pass_qty(cfg, token, front_url, &lot, Some(&codes_arg)).await?;
+  out.filtered_rows = filtered.len();
+
+  // C1：指定工步查询不能为空（全量里明明有这些工步）
+  out.checks.push(chk(
+    "filtered_non_empty",
+    !filtered.is_empty(),
+    format!("指定工步 [{}] 查询返回 {} 行", codes_arg, filtered.len()),
+  ));
+
+  // C2：返回行的工步必须都在被指定的集合内
+  let bad: Vec<String> = filtered
+    .iter()
+    .filter(|r| match r.stationCode.as_deref().map(str::trim) {
+      Some(code) if !code.is_empty() => !checked.iter().any(|c| c == code),
+      _ => true, // 指定工步查询却返回 stationCode 为空的行，同样不符
+    })
+    .map(|r| r.stationCode.clone().unwrap_or_else(|| "<null>".into()))
+    .collect();
+  out.checks.push(chk(
+    "only_requested_stations",
+    bad.is_empty(),
+    if bad.is_empty() {
+      format!("返回行的工步均属于指定集合 [{}]", codes_arg)
+    } else {
+      format!("出现未被指定工步的行：{}", bad.join(","))
+    },
+  ));
+
+  // C3：每个（工步, 类型）的过站数必须与全量结果一致
+  let mut mismatches: Vec<String> = Vec::new();
+  for f in &filtered {
+    let hit = all.iter().find(|a| {
+      a.stationCode.as_deref().map(str::trim) == f.stationCode.as_deref().map(str::trim) && a.r#type == f.r#type
+    });
+    match hit {
+      Some(a) if a.passQty == f.passQty && a.moLotNo == f.moLotNo => {}
+      Some(a) => mismatches.push(format!(
+        "{}/{}：指定查询 passQty={} 全量={}",
+        f.stationCode.as_deref().unwrap_or("<null>"),
+        f.r#type,
+        f.passQty,
+        a.passQty
+      )),
+      None => mismatches.push(format!(
+        "{}/{}：全量结果中不存在该（工步,类型）组合",
+        f.stationCode.as_deref().unwrap_or("<null>"),
+        f.r#type
+      )),
+    }
+  }
+  out.checks.push(chk(
+    "qty_matches_all",
+    mismatches.is_empty(),
+    if mismatches.is_empty() {
+      format!("{} 行的（工步,类型,过站数）均与全量结果一致", filtered.len())
+    } else {
+      mismatches.join("；")
+    },
+  ));
+
+  // C4：行数 == 全量结果中属于这些工步的行数
+  let expected = all
+    .iter()
+    .filter(|a| match a.stationCode.as_deref().map(str::trim) {
+      Some(code) => checked.iter().any(|c| c == code),
+      None => false,
+    })
+    .count();
+  out.checks.push(chk(
+    "row_count_matches",
+    filtered.len() == expected,
+    format!("指定工步行数 {} / 全量中对应行数 {}", filtered.len(), expected),
+  ));
+
+  // C5：抽查子集时必须「收窄」。基准用**命名工步**的行数：stationCode 为 null 的行
+  // （服务端工步缓存未命中）无法按工步指定，不参与收窄判断
+  let named_total = all
+    .iter()
+    .filter(|a| a.stationCode.as_deref().map(str::trim).map(|s| !s.is_empty()).unwrap_or(false))
+    .count();
+  if checked.len() < all_codes.len() {
+    out.checks.push(chk(
+      "filter_reduces",
+      filtered.len() < named_total,
+      format!(
+        "只复查 {}/{} 个命名工步：指定查询 {} 行 应 < 命名工步行数 {}",
+        checked.len(),
+        all_codes.len(),
+        filtered.len(),
+        named_total
+      ),
+    ));
+  } else {
+    out.checks.push(chk(
+      "filter_reduces",
+      true,
+      format!(
+        "已复查全部 {} 个命名工步，无法体现收窄；另有 {} 行 stationCode 为 null（不可按工步指定）",
+        all_codes.len(),
+        all.len().saturating_sub(named_total)
+      ),
+    ));
+  }
+
+  out.verdict = if out.checks.iter().all(|c| c.pass) { "PASS" } else { "FAIL" }.into();
+  Ok(out)
+}
+
 /// 递归剔除对象中的 `null` 值后再反序列化。
 ///
 /// `#[serde(default)]` 只兜「字段缺失」，**不兜「字段为 null」**。第 12 章
@@ -580,5 +815,177 @@ mod tests {
       .await
       .expect("result 为 null 不应报错");
     assert_eq!(found, None, "条码不存在应返回 None");
+  }
+
+  /// 闭环验收端到端：mock 按 stationCodes 真实过滤，验证「全部工站」与「指定工站」两侧自洽
+  #[tokio::test]
+  async fn verify_station_pass_qty_closes_the_loop() {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    // 三条过站记录：B10 整机 120 / B10 部件 40 / B20 整机 118
+    let rows = [
+      r#"{"moLotNo":"LOT1","stationId":"s1","stationCode":"B10","stationName":"组装","sortNo":10,"moQty":200,"type":"整机","passQty":120}"#,
+      r#"{"moLotNo":"LOT1","stationId":"s1","stationCode":"B10","stationName":"组装","sortNo":10,"moQty":200,"type":"部件","passQty":40}"#,
+      r#"{"moLotNo":"LOT1","stationId":"s2","stationCode":"B20","stationName":"测试","sortNo":20,"moQty":200,"type":"整机","passQty":118}"#,
+    ];
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+      loop {
+        let Ok((mut sock, _)) = listener.accept().await else { break };
+        let mut buf = vec![0u8; 8192];
+        let n = sock.read(&mut buf).await.unwrap_or(0);
+        let head = String::from_utf8_lossy(&buf[..n]).to_string();
+        // 请求行形如 "GET /path?q=1 HTTP/1.1"，取中间那段当作 URL
+        let req_url = head.lines().next().unwrap_or("").split_whitespace().nth(1).unwrap_or("").to_string();
+        let body = if req_url.contains("/api/Account/CreateToken") {
+          r#"{"result":"tok","success":true,"unAuthorizedRequest":false,"error":null}"#.to_string()
+        } else {
+          // 只从 URL 的查询串取 stationCodes（reqwest 会把逗号编码成 %2C）
+          let wanted: Option<Vec<String>> = req_url.split_once('?').and_then(|(_, q)| {
+            q.split('&')
+              .filter_map(|kv| kv.split_once('='))
+              .find(|(k, _)| *k == "stationCodes")
+              .map(|(_, v)| v.replace("%2C", ","))
+              .map(|v| v.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect())
+          });
+          let picked: Vec<&str> = rows
+            .iter()
+            .copied()
+            .filter(|r| match &wanted {
+              None => true, // 不传 -> 全部工步
+              Some(codes) => codes.iter().any(|c| r.contains(&format!("\"stationCode\":\"{c}\""))),
+            })
+            .collect();
+          format!(
+            r#"{{"result":[{}],"success":true,"unAuthorizedRequest":false,"error":null}}"#,
+            picked.join(",")
+          )
+        };
+        let resp = format!(
+          "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+          body.len()
+        );
+        let _ = sock.write_all(resp.as_bytes()).await;
+        let _ = sock.shutdown().await;
+      }
+    });
+
+    let cfg = Cfg {
+      sysUrl: format!("http://{addr}"),
+      userName: "u@example.com".into(),
+      passWord: "p".into(),
+      ..Default::default()
+    };
+    let front = format!("http://{addr}/frontApi/prod");
+
+    // 只复查 1 个工步（B10）：应 PASS，且结果从 3 行收窄到 2 行
+    let v = verify_station_pass_qty(&cfg, "tok", &front, "LOT1", 1).await.unwrap();
+    assert_eq!(v.verdict, "PASS", "checks: {:?}", v.checks);
+    assert_eq!(v.all_rows, 3, "全量查询应返回 3 行（全部工站）");
+    assert_eq!(v.all_station_codes, vec!["B10".to_string(), "B20".to_string()]);
+    assert_eq!(v.checked_station_codes, vec!["B10".to_string()]);
+    assert_eq!(v.filtered_rows, 2, "只查 B10 应返回 2 行");
+    assert!(v.checks.iter().all(|c| c.pass), "checks: {:?}", v.checks);
+
+    // 复查全部工步：应 PASS，且指定查询 == 全量
+    let v2 = verify_station_pass_qty(&cfg, "tok", &front, "LOT1", 9).await.unwrap();
+    assert_eq!(v2.verdict, "PASS", "checks: {:?}", v2.checks);
+    assert_eq!(v2.filtered_rows, 3);
+  }
+
+  /// 该批次无过站数据时必须报 NO_DATA（不假装 PASS，也不报错）
+  #[tokio::test]
+  async fn verify_station_pass_qty_reports_no_data() {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+      loop {
+        let Ok((mut sock, _)) = listener.accept().await else { break };
+        let mut buf = vec![0u8; 4096];
+        let n = sock.read(&mut buf).await.unwrap_or(0);
+        let head = String::from_utf8_lossy(&buf[..n]).to_string();
+        let body = if head.contains("/api/Account/CreateToken") {
+          r#"{"result":"tok","success":true}"#.to_string()
+        } else {
+          r#"{"result":[],"success":true}"#.to_string()
+        };
+        let resp = format!(
+          "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+          body.len()
+        );
+        let _ = sock.write_all(resp.as_bytes()).await;
+        let _ = sock.shutdown().await;
+      }
+    });
+    let cfg = Cfg {
+      sysUrl: format!("http://{addr}"),
+      userName: "u@example.com".into(),
+      passWord: "p".into(),
+      ..Default::default()
+    };
+    let v = verify_station_pass_qty(&cfg, "tok", &format!("http://{addr}/frontApi/prod"), "LOT1", 3)
+      .await
+      .unwrap();
+    assert_eq!(v.verdict, "NO_DATA");
+    assert_eq!(v.all_rows, 0);
+    assert!(v.checks.iter().any(|c| c.name == "all_stations_data" && !c.pass));
+  }
+
+  /// 闭环验收的判别力：服务端**无视** stationCodes（照样返回全部工站）时必须判 FAIL
+  #[tokio::test]
+  async fn verify_station_pass_qty_detects_ignored_filter() {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    let all_rows = r#"[
+      {"moLotNo":"LOT1","stationId":"s1","stationCode":"B10","stationName":"组装","sortNo":10,"moQty":200,"type":"整机","passQty":120},
+      {"moLotNo":"LOT1","stationId":"s1","stationCode":"B10","stationName":"组装","sortNo":10,"moQty":200,"type":"部件","passQty":40},
+      {"moLotNo":"LOT1","stationId":"s2","stationCode":"B20","stationName":"测试","sortNo":20,"moQty":200,"type":"整机","passQty":118}
+    ]"#;
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+      loop {
+        let Ok((mut sock, _)) = listener.accept().await else { break };
+        let mut buf = vec![0u8; 8192];
+        let n = sock.read(&mut buf).await.unwrap_or(0);
+        let req_url = String::from_utf8_lossy(&buf[..n])
+          .lines()
+          .next()
+          .unwrap_or("")
+          .split_whitespace()
+          .nth(1)
+          .unwrap_or("")
+          .to_string();
+        // 关键：无论是否传 stationCodes，一律返回全部三行（模拟「过滤未生效」）
+        let body = if req_url.contains("/api/Account/CreateToken") {
+          r#"{"result":"tok","success":true}"#.to_string()
+        } else {
+          format!(r#"{{"result":{all_rows},"success":true}}"#)
+        };
+        let resp = format!(
+          "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+          body.len()
+        );
+        let _ = sock.write_all(resp.as_bytes()).await;
+        let _ = sock.shutdown().await;
+      }
+    });
+    let cfg = Cfg {
+      sysUrl: format!("http://{addr}"),
+      userName: "u@example.com".into(),
+      passWord: "p".into(),
+      ..Default::default()
+    };
+    // 只抽查 1 个工站（B10），若服务端真过滤应只剩 2 行；返回 3 行即说明过滤没生效
+    let v = verify_station_pass_qty(&cfg, "tok", &format!("http://{addr}/frontApi/prod"), "LOT1", 1)
+      .await
+      .unwrap();
+    assert_eq!(v.verdict, "FAIL", "服务端无视 stationCodes 时必须判 FAIL：{:?}", v.checks);
+    let failed: Vec<&str> = v.checks.iter().filter(|c| !c.pass).map(|c| c.name.as_str()).collect();
+    assert!(failed.contains(&"only_requested_stations"), "应检出越界工站：{failed:?}");
+    assert!(failed.contains(&"row_count_matches"), "应检出数量不符：{failed:?}");
+    assert!(failed.contains(&"filter_reduces"), "应检出未收窄：{failed:?}");
   }
 }

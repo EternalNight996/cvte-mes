@@ -158,6 +158,36 @@ pub async fn api(op: Opts) -> e_utils::AnyResult<String> {
           let rows = cmes::bas::station_pass_qty(&cfg, &token, front_url, lot, codes).await?;
           Ok(serde_json::to_string_pretty(&rows)?)
         }
+        "ScanHistory:VerifyStationPassQty" => {
+          // 闭环验收：--args[0]=前端 API 根，--args[1]=批次号，
+          // --args[2]=抽查工步数（可选，默认 3）：先查全部工步，再指定工步复查并与全量逐行对比
+          let front_url = op.args.first().ok_or("请把前端 API 根放在 --args[0]（如 http://xxx-pc-cmes.gz.cvte.cn/frontApi/prod）")?;
+          let lot = op.args.get(1).ok_or("请把批次号放在 --args[1]")?;
+          let max_stations = match op.args.get(2).map(|s| s.trim()) {
+            None | Some("") => 3usize,
+            Some(v) => v.parse::<usize>().map_err(|_| format!("--args[2] 抽查工步数应为正整数，实际为 {v}"))?,
+          };
+          let token = cmes::login::login(&cfg).await?;
+          let report = cmes::bas::verify_station_pass_qty(&cfg, &token, front_url, lot, max_stations).await?;
+          let text = serde_json::to_string_pretty(&report)?;
+          // 验收结论非 PASS 时必须让进程失败，否则渲染器只看 status 会把 FAIL 显示成 PASS
+          if report.verdict == "PASS" {
+            Ok(text)
+          } else {
+            let failed: Vec<String> = report
+              .checks
+              .iter()
+              .filter(|c| !c.pass)
+              .map(|c| format!("{}：{}", c.name, c.detail))
+              .collect();
+            Err(format!(
+              "过站数闭环验收未通过（verdict={}）；未通过项：{}；完整报告：{text}",
+              report.verdict,
+              if failed.is_empty() { "（无）".to_string() } else { failed.join(" | ") }
+            )
+            .into())
+          }
+        }
         "SerialNoCache:GetInfoBySn" => {
           // --args[0]=前端 API 根，--args[1]=条码；--args[2]=isIncludeOrder（可选 true/false，缺省用服务端默认）；
           // --args[3]=componentBasisCode（可选，条码类型编码）
