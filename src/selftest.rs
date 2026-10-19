@@ -19,6 +19,7 @@
 //! | 13 | 第 12 章：条码详细信息对象解析正确（含 `isIncludeOrder=false` 的空值） | V1.1 文档 12.3 |
 //! | 14 | 第 12 章：**条码不存在（`result` 为 `null`）返回 `Ok(None)` 而不报错** | V1.1 文档 12.2 |
 //! | 15 | 前置校验：空白 `containerName` 直接报参数错误，不发起请求 | V1.1 文档 10.4 |
+//! | 16 | 第 11 章闭环验收：全量工站 → 指定工站复查，两侧逐项一致且抽查必须收窄 | V1.1 文档 11.1 / 11.2 |
 //!
 //! CLI：`--api CMES --task SelfTest:Session`
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -157,21 +158,48 @@ fn route(
       .to_string(),
     ),
     // 11：各工步过站行（含 stationCode 为 null 的一行，验证 Option 容错）
-    "/api/services/bas/ScanHistory/GetStationPassQty" => (
-      "200 OK",
-      json!({
-        "result": [
-          { "moLotNo": "LOT001", "stationId": "8f2b", "stationCode": "B10", "stationName": "组装",
-            "sortNo": 10, "moQty": 200, "type": "整机", "passQty": 120 },
-          { "moLotNo": "LOT001", "stationId": "8f2b", "stationCode": "B10", "stationName": "组装",
-            "sortNo": 10, "moQty": 200, "type": "部件", "passQty": 40 },
-          { "moLotNo": "LOT001", "stationId": "9a3c", "stationCode": null, "stationName": "测试",
-            "sortNo": 20, "moQty": 200, "type": "整机", "passQty": 118 }
-        ],
-        "success": true, "unAuthorizedRequest": false, "error": null
-      })
-      .to_string(),
-    ),
+    //     按 stationCodes 真实过滤，供闭环验收（全部工站 vs 指定工站）自证；
+    //     moLotNo=MOCK-MULTI 时返回两个命名工步，便于验证「抽查子集必须收窄」
+    "/api/services/bas/ScanHistory/GetStationPassQty" => {
+      let lot = query_param(path, "moLotNo");
+      let base: Vec<serde_json::Value> = if lot == "MOCK-MULTI" {
+        vec![
+          json!({ "moLotNo": "MOCK-MULTI", "stationId": "8f2b", "stationCode": "B10", "stationName": "组装",
+                  "sortNo": 10, "moQty": 200, "type": "整机", "passQty": 120 }),
+          json!({ "moLotNo": "MOCK-MULTI", "stationId": "8f2b", "stationCode": "B10", "stationName": "组装",
+                  "sortNo": 10, "moQty": 200, "type": "部件", "passQty": 40 }),
+          json!({ "moLotNo": "MOCK-MULTI", "stationId": "9a3c", "stationCode": "B20", "stationName": "测试",
+                  "sortNo": 20, "moQty": 200, "type": "整机", "passQty": 118 }),
+        ]
+      } else {
+        vec![
+          json!({ "moLotNo": "LOT001", "stationId": "8f2b", "stationCode": "B10", "stationName": "组装",
+                  "sortNo": 10, "moQty": 200, "type": "整机", "passQty": 120 }),
+          json!({ "moLotNo": "LOT001", "stationId": "8f2b", "stationCode": "B10", "stationName": "组装",
+                  "sortNo": 10, "moQty": 200, "type": "部件", "passQty": 40 }),
+          json!({ "moLotNo": "LOT001", "stationId": "9a3c", "stationCode": null, "stationName": "测试",
+                  "sortNo": 20, "moQty": 200, "type": "整机", "passQty": 118 }),
+        ]
+      };
+      let codes = query_param(path, "stationCodes");
+      let wanted: Vec<String> = codes.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
+      let rows: Vec<serde_json::Value> = if wanted.is_empty() {
+        base
+      } else {
+        base.into_iter()
+          .filter(|r| {
+            r.get("stationCode")
+              .and_then(|v| v.as_str())
+              .map(|c| wanted.iter().any(|w| w == c))
+              .unwrap_or(false)
+          })
+          .collect()
+      };
+      (
+        "200 OK",
+        json!({ "result": rows, "success": true, "unAuthorizedRequest": false, "error": null }).to_string(),
+      )
+    }
     // 12：条码详细信息；sn=NOT-EXIST 时按标准 12.2 返回 success=true 且 result=null
     "/api/services/bas/SerialNoCache/GetInfoBySn" => {
       if query_param(path, "sn") == "NOT-EXIST" {
@@ -425,8 +453,8 @@ async fn run_session_checks(mock: &Mock) -> Vec<Check> {
     Err(e) => out.push(bad("bas_feed_sheet_parts", format!("请求失败: {e}"))),
   }
 
-  // 11. 第 11 章：各工步过站行（第三行 stationCode 为 null）
-  match s.station_pass_qty(&mock.base, "LOT001", Some("B10, B20")).await {
+  // 11. 第 11 章：各工步过站行（不传 stationCodes 取全部工站；第三行 stationCode 为 null）
+  match s.station_pass_qty(&mock.base, "LOT001", None).await {
     Ok(rows) if rows.len() == 3 => {
       if rows[0].r#type == "整机" && rows[0].passQty == 120 && rows[0].moQty == 200
         && rows[1].r#type == "部件"
@@ -445,6 +473,43 @@ async fn run_session_checks(mock: &Mock) -> Vec<Check> {
     }
     Ok(rows) => out.push(bad("bas_station_pass_qty", format!("行数不符（期望 3）：{}", rows.len()))),
     Err(e) => out.push(bad("bas_station_pass_qty", format!("请求失败: {e}"))),
+  }
+
+  // 11b. GetStationPassQty 闭环验收：全部工站 -> 指定工站 复查 -> 两侧逐项对比
+  //      mock 的 MOCK-MULTI 批次有两个命名工步（B10/B20），抽查 1 个必须收窄
+  let cfg2 = cfg.clone();
+  match crate::mes::cmes::bas::verify_station_pass_qty(&cfg2, "t", &mock.base, "MOCK-MULTI", 1).await {
+    Ok(v) if v.verdict == "PASS" => {
+      let ok_shape = v.all_rows == 3
+        && v.all_station_codes == vec!["B10".to_string(), "B20".to_string()]
+        && v.checked_station_codes == vec!["B10".to_string()]
+        && v.filtered_rows == 2;
+      if ok_shape {
+        out.push(ok(
+          "bas_station_pass_qty_closed_loop",
+          format!(
+            "闭环验收通过：全量 {} 行（工步 {}）-> 指定 [{}] {} 行，全部检查项通过",
+            v.all_rows,
+            v.all_station_codes.join(","),
+            v.checked_station_codes.join(","),
+            v.filtered_rows
+          ),
+        ));
+      } else {
+        out.push(bad(
+          "bas_station_pass_qty_closed_loop",
+          format!("闭环结构不符：all={} codes={:?} checked={:?} filtered={}", v.all_rows, v.all_station_codes, v.checked_station_codes, v.filtered_rows),
+        ));
+      }
+    }
+    Ok(v) => {
+      let failed: Vec<String> = v.checks.iter().filter(|c| !c.pass).map(|c| format!("{}:{}", c.name, c.detail)).collect();
+      out.push(bad(
+        "bas_station_pass_qty_closed_loop",
+        format!("闭环验收未通过（verdict={}）：{}", v.verdict, failed.join(" | ")),
+      ));
+    }
+    Err(e) => out.push(bad("bas_station_pass_qty_closed_loop", format!("请求失败: {e}"))),
   }
 
   // 12. 第 12 章：条码详细信息对象
