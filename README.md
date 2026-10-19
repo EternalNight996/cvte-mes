@@ -187,7 +187,8 @@ cargo run -- --api CMES --task ScanHistory:GetStationPassQty --args 'http://heg-
 cargo run -- --api CMES --task SerialNoCache:GetInfoBySn --args 'http://heg-pc-cmes.gz.cvte.cn/frontApi/prod' 'CIS-CH11HG260904940XAG0010' --setting '<CMES setting>'
 
 # 前端 API 鉴权诊断：用登录拿到的 Token 依次用 5 种头访问同一 URL，定位服务端认哪种
-cargo run -- --api CMES --task Diagnose:Auth --args 'http://heg-pc-cmes.gz.cvte.cn/frontApi/prod/api/services/pack/Pack/GetOtherListBySn?snCode=U23070429-0A03693' --setting '<CMES setting>'
+#   可在 --args[1..] 追加候选头名（如主站真实头名 cmes_heg_info）：会同时试「同名请求头」与「同名 Cookie」
+cargo run -- --api CMES --task Diagnose:Auth --args 'http://heg-pc-cmes.gz.cvte.cn/frontApi/prod/api/services/pack/Pack/GetOtherListBySn?snCode=U23070429-0A03693' 'cmes_heg_info' --setting '<CMES setting>'
 
 # 内置自检（本地 mock，零外部依赖）
 cargo run --features input-api,blocking -- --api CMES --task SelfTest:Session

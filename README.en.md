@@ -188,7 +188,9 @@ cargo run -- --api CMES --task ScanHistory:GetStationPassQty --args 'http://heg-
 cargo run -- --api CMES --task SerialNoCache:GetInfoBySn --args 'http://heg-pc-cmes.gz.cvte.cn/frontApi/prod' 'CIS-CH11HG260904940XAG0010' --setting '<CMES setting>'
 
 # Front-end API auth diagnose: probe the same URL with five header candidates using one Token
-cargo run -- --api CMES --task Diagnose:Auth --args 'http://heg-pc-cmes.gz.cvte.cn/frontApi/prod/api/services/pack/Pack/GetOtherListBySn?snCode=U23070429-0A03693' --setting '<CMES setting>'
+#   Extra candidate header names may follow in --args[1..] (e.g. cmes_heg_info):
+#   each is tried both as a plain header and as a same-named Cookie
+cargo run -- --api CMES --task Diagnose:Auth --args 'http://heg-pc-cmes.gz.cvte.cn/frontApi/prod/api/services/pack/Pack/GetOtherListBySn?snCode=U23070429-0A03693' 'cmes_heg_info' --setting '<CMES setting>'
 
 # Built-in self-test (local mock, zero external dependencies)
 cargo run --features input-api,blocking -- --api CMES --task SelfTest:Session

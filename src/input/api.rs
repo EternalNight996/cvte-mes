@@ -197,18 +197,39 @@ pub async fn api(op: Opts) -> e_utils::AnyResult<String> {
           }
         }
         "Diagnose:Auth" => {
+          // --args[0]=要探测的 URL；--args[1..]=额外候选鉴权头名（试现场真实头名，如 cmes_heg_info）
           let url = op.args.first().ok_or("请把要探测的 URL 放在 --args[0]")?;
+          let extra: Vec<String> = op
+            .args
+            .iter()
+            .skip(1)
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
           let token = cmes::login::login(&cfg).await?;
           let mut attempts: Vec<serde_json::Value> = Vec::new();
-          let candidates: Vec<(String, String)> = vec![
-            ("x-auth-token".to_string(), token.clone()),
-            ("Authorization".to_string(), format!("Bearer {token}")),
-            (cfg.tokenName.clone(), token.clone()),
-            ("Cookie".to_string(), format!("{}={}", cfg.tokenName, token)),
-            ("token".to_string(), token.clone()),
+          // (展示用标签, 实际请求头名, 请求头值)
+          let mut candidates: Vec<(String, String, String)> = vec![
+            ("x-auth-token".to_string(), "x-auth-token".to_string(), token.clone()),
+            ("Authorization".to_string(), "Authorization".to_string(), format!("Bearer {token}")),
+            (cfg.tokenName.clone(), cfg.tokenName.clone(), token.clone()),
+            (
+              format!("Cookie:{}", cfg.tokenName),
+              "Cookie".to_string(),
+              format!("{}={}", cfg.tokenName, token),
+            ),
+            ("token".to_string(), "token".to_string(), token.clone()),
           ];
-          for (name, value) in candidates {
-            let (code, snippet) = match cmes::client().get(url).header(name.as_str(), value).send().await {
+          // 追加调用方指定的候选头名：既试「同名请求头」，也试「同名 Cookie」（现场两种都有先例）
+          for name in extra {
+            if candidates.iter().any(|(_, h, _)| *h == name) {
+              continue;
+            }
+            candidates.push((name.clone(), name.clone(), token.clone()));
+            candidates.push((format!("Cookie:{name}"), "Cookie".to_string(), format!("{name}={token}")));
+          }
+          for (label, header_name, value) in candidates {
+            let (code, snippet) = match cmes::client().get(url).header(header_name.as_str(), value).send().await {
               Ok(resp) => {
                 let code = resp.status().as_u16();
                 let text = resp.text().await.unwrap_or_default();
@@ -217,7 +238,7 @@ pub async fn api(op: Opts) -> e_utils::AnyResult<String> {
               }
               Err(e) => (0u16, format!("请求失败: {e}")),
             };
-            attempts.push(serde_json::json!({ "header": name, "http": code, "body": snippet }));
+            attempts.push(serde_json::json!({ "header": label, "http": code, "body": snippet }));
           }
           Ok(serde_json::to_string_pretty(&serde_json::json!({
             "url": url,
