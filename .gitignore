@@ -19,3 +19,6 @@
 /doc/ItAPI接口文档.md
 /scripts/logs/
 /doc/SCM-官方签名Demo-Java源码.md
+# 仓库根目录不该出现这些副本（构建产物/脚本请放 scripts/）
+/cvte-mes.exe
+/verify.bat
