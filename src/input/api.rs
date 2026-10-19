@@ -228,6 +228,7 @@ pub async fn api(op: Opts) -> e_utils::AnyResult<String> {
             candidates.push((name.clone(), name.clone(), token.clone()));
             candidates.push((format!("Cookie:{name}"), "Cookie".to_string(), format!("{name}={token}")));
           }
+          let mut ok_candidates: Vec<String> = Vec::new();
           for (label, header_name, value) in candidates {
             let (code, snippet, resp_headers) = match cmes::client().get(url).header(header_name.as_str(), value).send().await {
               Ok(resp) => {
@@ -256,16 +257,21 @@ pub async fn api(op: Opts) -> e_utils::AnyResult<String> {
               }
               Err(e) => (0u16, format!("请求失败: {e}"), Vec::new()),
             };
-            let mut attempt = serde_json::json!({ "header": label, "http": code, "body": snippet });
+            let mut attempt = serde_json::json!({ "header": label.clone(), "http": code, "body": snippet });
             if !resp_headers.is_empty() {
               attempt["resp_headers"] = serde_json::json!(resp_headers);
             }
             attempts.push(attempt);
+            // 汇总返回 200 的候选，便于一眼看出前端认哪种凭据（无需逐条扫 attempts）
+            if code == 200 {
+              ok_candidates.push(label);
+            }
           }
           Ok(serde_json::to_string_pretty(&serde_json::json!({
             "url": url,
             "note": "依次用不同鉴权头访问同一 URL；看哪种返回 200，即可判断前端 API 认什么鉴权（Token 值不落日志）。resp_headers 只保留 WWW-Authenticate / Location / x-* 以及与 Set-Cookie 的 cookie 名（不保留会话值）",
             "login_token_ok": true,
+            "ok_candidates": ok_candidates,
             "attempts": attempts
           }))?)
         }

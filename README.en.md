@@ -191,7 +191,8 @@ cargo run -- --api CMES --task SerialNoCache:GetInfoBySn --args 'http://heg-pc-c
 #   Extra candidate header names may follow in --args[1..] (e.g. cmes_heg_info):
 #   each is tried both as a plain header and as a same-named Cookie.
 #   Each probe also reports resp_headers (WWW-Authenticate / Location / x-* / the Set-Cookie
-#   cookie *name* only), which shows what credential the front-end actually expects.
+#   cookie *name* only), and every candidate that returned 200 is summarised in ok_candidates —
+#   so the accepted credential is visible at a glance.
 cargo run -- --api CMES --task Diagnose:Auth --args 'http://heg-pc-cmes.gz.cvte.cn/frontApi/prod/api/services/pack/Pack/GetOtherListBySn?snCode=U23070429-0A03693' 'cmes_heg_info' --setting '<CMES setting>'
 
 # Built-in self-test (local mock, zero external dependencies)
