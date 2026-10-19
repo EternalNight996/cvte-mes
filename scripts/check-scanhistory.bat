@@ -14,6 +14,9 @@ REM    check-scanhistory.bat <批次号> B10,B20     指定批次与工站码
 REM
 REM  A 官方原样：固定 x-auth-token 头、不解析、原样输出原始响应（与官方 curl 对齐）
 REM  B 优化版  ：用配置的 frontTokenName、走分层解析（生产验证脚本用的就是这条）
+REM
+REM  结果：根目录 scanhistory.result.txt（便于直接打开）
+REM        并归档到 logs\<N>\（与 verify.bat 同一套编号规则，互不覆盖）
 REM ============================================================
 
 set "EXE=%~dp0cvte-mes.exe"
@@ -44,8 +47,20 @@ if not "%CODES%"=="" set "CODES_ARG=%CODES%"
 
 set "SETTING={\"stationName\":\"%STATION_NAME%\",\"prodUrl\":\"%PROD_URL%\",\"sysUrl\":\"%SYS_URL%\",\"userName\":\"%USER_NAME%\",\"passWord\":\"%PASS_WORD%\",\"tokenName\":\"%TOKEN_NAME%\",\"frontTokenName\":\"%FRONT_TOKEN_NAME%\",\"causeNo\":\"%CAUSE_NO%\",\"workCenter\":\"%WORK_CENTER%\",\"testFrameidNo\":\"%TEST_FRAME_ID%\",\"stationCode\":\"%STATION_CODE%\"}"
 
+REM ---------------- 归档目录：沿用 verify.bat 的编号规则（取第一个不存在的 N） ----------------
+set /a LN=1
+:nextlog
+if not exist "%~dp0logs\%LN%" goto :gotlog
+set /a LN+=1
+goto :nextlog
+
+:gotlog
+set "LOGDIR=%~dp0logs\%LN%"
+mkdir "%LOGDIR%" 2>nul
+
 set "OUT=%~dp0scanhistory.result.txt"
 echo 批次号=%LOT_ARG%   工站码=%CODES_ARG%   前端=%FRONT_URL% > "%OUT%"
+echo 归档目录=%LOGDIR% >> "%OUT%"
 
 echo.
 echo ============================================================
@@ -61,12 +76,16 @@ echo     生产验证脚本 verify.bat 用的就是这条
 echo ============================================================
 call :run B_优化版 ScanHistory:GetStationPassQty
 
+REM ---------------- 归档 ----------------
+copy /y "%OUT%" "%LOGDIR%\result.txt" >nul 2>&1
+
 echo.
 echo ------------------------------------------------------------
 echo 结果已保存：%OUT%
+echo 已归档到：  logs\%LN%\  （result.txt + A/B 各自的原始输出）
 echo 判读：
 echo    A、B 都是空数组      -^> 服务端该批次无过站数据（换批次或找 MES 方核实口径）
-echo    A 有数据、B 为空     -^> 客户端与官方的差异，请把本文件发回排查
+echo    A 有数据、B 为空     -^> 客户端与官方的差异，请把 logs\%LN%\ 整个目录发回排查
 echo    A、B 都有数据        -^> 正常；空数组是批次本身的问题
 echo ------------------------------------------------------------
 pause
@@ -78,6 +97,7 @@ set "TASK=%~2"
 set "TMP=%TEMP%\scanhist.tmp"
 "%EXE%" --api CMES --task %TASK% --args "%FRONT_URL%" "%LOT_ARG%" %CODES_ARG% --setting "%SETTING%" > "%TMP%" 2>&1
 type "%TMP%"
+copy /y "%TMP%" "%LOGDIR%\%TITLE%.txt" >nul 2>&1
 echo. >> "%OUT%"
 echo ==== %TITLE% ==== >> "%OUT%"
 type "%TMP%" >> "%OUT%"

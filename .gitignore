@@ -22,3 +22,6 @@
 # 仓库根目录不该出现这些副本（构建产物/脚本请放 scripts/）
 /cvte-mes.exe
 /verify.bat
+
+# check-scanhistory.bat 的运行结果
+/scripts/scanhistory.result.txt
