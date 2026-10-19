@@ -182,7 +182,11 @@ cargo run -- --api CMES --task Pack:GetSnPackFinishQty --args 'http://heg-pc-cme
 cargo run -- --api CMES --task FeedSheetOrder:GetFeedSheetByContainerName --args 'http://heg-pc-cmes.gz.cvte.cn/frontApi/prod' 'CIS-CH11HG260904940XAG0010' --setting '<CMES setting>'
 
 # [V1.1-11] Per-station pass counts by batch (--args[2]=station codes, optional, comma-separated, max 50)
-cargo run -- --api CMES --task ScanHistory:GetStationPassQty --args 'http://heg-pc-cmes.gz.cvte.cn/frontApi/prod' 'HEG-YKCBU2607034701' 'B10,B20' --setting '<CMES setting>'
+cargo run -- --api CMES --task ScanHistory:GetStationPassQty --args 'http://heg-pc-cmes.gz.cvte.cn/frontApi/prod' 'HEG-YKCBU2607034701' --setting '<CMES setting>'          # all stations
+cargo run -- --api CMES --task ScanHistory:GetStationPassQty --args 'http://heg-pc-cmes.gz.cvte.cn/frontApi/prod' 'HEG-YKCBU2607034701' 'B10,B20' --setting '<CMES setting>'  # specified stations
+
+# [V1.1-11] Closed-loop acceptance: all stations → re-query specified stations → cross-check (--args[2]=sample count, default 3)
+cargo run -- --api CMES --task ScanHistory:VerifyStationPassQty --args 'http://heg-pc-cmes.gz.cvte.cn/frontApi/prod' 'HEG-YKCBU2607034701' '1' --setting '<CMES setting>'
 
 # [V1.1-12] Barcode detail (--args[2]=isIncludeOrder optional; --args[3]=componentBasisCode optional)
 #   Note: for a missing barcode the output has content: null while status stays true (not an error)

@@ -182,7 +182,11 @@ cargo run -- --api CMES --task Pack:GetSnPackFinishQty --args 'http://heg-pc-cme
 cargo run -- --api CMES --task FeedSheetOrder:GetFeedSheetByContainerName --args 'http://heg-pc-cmes.gz.cvte.cn/frontApi/prod' 'CIS-CH11HG260904940XAG0010' --setting '<CMES setting>'
 
 # 【V1.1-11】按批次取各工步过站数（--args[2]=工步编码，可选，逗号分隔，最多 50 个；省略则统计全部工步）
-cargo run -- --api CMES --task ScanHistory:GetStationPassQty --args 'http://heg-pc-cmes.gz.cvte.cn/frontApi/prod' 'HEG-YKCBU2607034701' 'B10,B20' --setting '<CMES setting>'
+cargo run -- --api CMES --task ScanHistory:GetStationPassQty --args 'http://heg-pc-cmes.gz.cvte.cn/frontApi/prod' 'HEG-YKCBU2607034701' --setting '<CMES setting>'          # 全部工站
+cargo run -- --api CMES --task ScanHistory:GetStationPassQty --args 'http://heg-pc-cmes.gz.cvte.cn/frontApi/prod' 'HEG-YKCBU2607034701' 'B10,B20' --setting '<CMES setting>'  # 指定工站
+
+# 【V1.1-11】过站数闭环验收：全部工站 → 指定工站复查 → 逐项比对（--args[2]=抽查工站数，默认 3）
+cargo run -- --api CMES --task ScanHistory:VerifyStationPassQty --args 'http://heg-pc-cmes.gz.cvte.cn/frontApi/prod' 'HEG-YKCBU2607034701' '1' --setting '<CMES setting>'
 
 # 【V1.1-12】按条码取条码详细信息（--args[2]=isIncludeOrder 可选 true/false；--args[3]=componentBasisCode 可选）
 #  注意：条码不存在时输出 content 为 null 且 status 仍为 true（不是错误）
