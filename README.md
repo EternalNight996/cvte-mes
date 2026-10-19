@@ -152,6 +152,7 @@ test result: ok. 48 passed; 0 failed
 |------|----------|----------|
 | 取 Token | `GET {域名}/api/Account/CreateToken?Email=&Pwd=`（Pwd 为 32 位小写 MD5 摘要） | `login::login` |
 | 携带 Token | 请求头 `x-auth-token: {Token}`；Header 名不区分大小写 | `session::auth_headers`（`Cfg::tokenName` 非空时以现场配置为准，留空回退标准名） |
+| 前端专用头名 | 部分站点**后端与前端要求不同头名**（实测板卡：后端 `cmes_heg-mb_info`、前端 `cmes_heg_info`） | `Cfg::frontTokenName`（前端接口用；留空回退 `tokenName`，旧配置完全兼容） |
 | Token 生命周期 | 默认 2 小时；过期前主动刷新；多线程/多实例并发刷新需收敛 | `session::Session`（提前 5 分钟刷新，并发调用只登录一次） |
 | Token 失效 | HTTP 401 或 `unAuthorizedRequest === true` → 清除旧 Token、重取、原请求**最多重试一次** | `Session::get_json`；重取仍失败即停止并告警 |
 | HTTP 500 | 系统异常或服务端友好提示：读 `error.message` / `error.details` 或响应体文本，**不解析 `result`** | `session::classify`（提示可直接展示给操作员） |

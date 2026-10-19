@@ -49,6 +49,8 @@ pub fn mock_cfg(mock: &Mock) -> Cfg {
     userName: "selftest@mock".into(),
     passWord: "selftest".into(),
     tokenName: "x-auth-token".into(),
+    // 自检里前端与后端用同一个头名（留空即回退 tokenName），不影响既有检查
+    frontTokenName: String::new(),
     causeNo: "SELFTEST".into(),
     workCenter: "SELF".into(),
     testFrameidNo: "SELF".into(),

@@ -64,7 +64,7 @@ pub async fn feed_sheet_list(
   mo_lot_no: &str,
 ) -> e_utils::AnyResult<Vec<FeedSheetItem>> {
   let url = format!("{}/api/services/app/ScanHead/GetFeedSheetList", front_url);
-  let value = session::get_json_with_token(
+  let value = session::get_front_json_with_token(
     cfg,
     token,
     &url,

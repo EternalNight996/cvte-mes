@@ -80,7 +80,7 @@ pub async fn get_other_list_by_sn(
 ) -> e_utils::AnyResult<Vec<PackOtherItem>> {
   let sn = check_sn(sn_code)?;
   let url = format!("{}/api/services/pack/Pack/GetOtherListBySn", root(front_url));
-  let value = session::get_json_with_token(cfg, token, &url, &[("snCode", sn)]).await?;
+  let value = session::get_front_json_with_token(cfg, token, &url, &[("snCode", sn)]).await?;
   parse_other_items(&value)
 }
 
@@ -96,7 +96,7 @@ pub async fn get_sn_pack_finish_qty(
 ) -> e_utils::AnyResult<Vec<SnPackFinishQty>> {
   let lot = check_lot(mo_lot_no)?;
   let url = format!("{}/api/services/pack/Pack/GetSnPackFinishQty", root(front_url));
-  let value = session::get_json_with_token(cfg, token, &url, &[("moLotNo", lot)]).await?;
+  let value = session::get_front_json_with_token(cfg, token, &url, &[("moLotNo", lot)]).await?;
   parse_finish_rows(&value)
 }
 
@@ -105,7 +105,7 @@ impl Session {
   pub async fn get_other_list_by_sn(&self, front_url: &str, sn_code: &str) -> e_utils::AnyResult<Vec<PackOtherItem>> {
     let sn = check_sn(sn_code)?;
     let url = format!("{}/api/services/pack/Pack/GetOtherListBySn", root(front_url));
-    let value = self.get_json(&url, &[("snCode", sn)]).await?;
+    let value = self.get_front_json(&url, &[("snCode", sn)]).await?;
     parse_other_items(&value)
   }
 
@@ -113,7 +113,7 @@ impl Session {
   pub async fn get_sn_pack_finish_qty(&self, front_url: &str, mo_lot_no: &str) -> e_utils::AnyResult<Vec<SnPackFinishQty>> {
     let lot = check_lot(mo_lot_no)?;
     let url = format!("{}/api/services/pack/Pack/GetSnPackFinishQty", root(front_url));
-    let value = self.get_json(&url, &[("moLotNo", lot)]).await?;
+    let value = self.get_front_json(&url, &[("moLotNo", lot)]).await?;
     parse_finish_rows(&value)
   }
 }

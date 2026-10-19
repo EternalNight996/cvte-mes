@@ -140,7 +140,7 @@ pub async fn feed_sheet_by_container_name(
 ) -> e_utils::AnyResult<Vec<FeedSheetPart>> {
   let name = check_container(container_name)?;
   let url = format!("{}/api/services/bas/FeedSheetOrder/GetFeedSheetByContainerName", root(front_url));
-  let value = session::get_json_with_token(cfg, token, &url, &[("containerName", name)]).await?;
+  let value = session::get_front_json_with_token(cfg, token, &url, &[("containerName", name)]).await?;
   parse_feed_sheet_parts(&value)
 }
 
@@ -164,7 +164,7 @@ pub async fn station_pass_qty(
   if let Some(ref codes) = codes {
     query.push(("stationCodes", codes.as_str()));
   }
-  let value = session::get_json_with_token(cfg, token, &url, &query).await?;
+  let value = session::get_front_json_with_token(cfg, token, &url, &query).await?;
   parse_station_rows(&value)
 }
 
@@ -191,7 +191,7 @@ pub async fn serial_no_info(
   if let Some(code) = component_basis_code.map(str::trim).filter(|s| !s.is_empty()) {
     query.push(("componentBasisCode", code));
   }
-  let value = session::get_json_with_token(cfg, token, &url, &query).await?;
+  let value = session::get_front_json_with_token(cfg, token, &url, &query).await?;
   parse_serial_info(&value)
 }
 
@@ -204,7 +204,7 @@ impl Session {
   ) -> e_utils::AnyResult<Vec<FeedSheetPart>> {
     let name = check_container(container_name)?;
     let url = format!("{}/api/services/bas/FeedSheetOrder/GetFeedSheetByContainerName", root(front_url));
-    let value = self.get_json(&url, &[("containerName", name)]).await?;
+    let value = self.get_front_json(&url, &[("containerName", name)]).await?;
     parse_feed_sheet_parts(&value)
   }
 
@@ -222,7 +222,7 @@ impl Session {
     if let Some(ref codes) = codes {
       query.push(("stationCodes", codes.as_str()));
     }
-    let value = self.get_json(&url, &query).await?;
+    let value = self.get_front_json(&url, &query).await?;
     parse_station_rows(&value)
   }
 
@@ -243,7 +243,7 @@ impl Session {
     if let Some(code) = component_basis_code.map(str::trim).filter(|s| !s.is_empty()) {
       query.push(("componentBasisCode", code));
     }
-    let value = self.get_json(&url, &query).await?;
+    let value = self.get_front_json(&url, &query).await?;
     parse_serial_info(&value)
   }
 }

@@ -58,11 +58,14 @@ REM 注意 verify.prod.bat 由 cvte-mes-gencfg 重新生成，所以兜底放在
 if not defined PARENT_ID set "PARENT_ID=3e5b8a05ea8b44efb3405d2cdf94663e"
 REM STATION_NAME：SETTING 的 stationName；prod.bat 未提供时用站点码兜底
 if not defined STATION_NAME set "STATION_NAME=%STATION_CODE%"
+REM FRONT_TOKEN_NAME：前端 API 鉴权头名（未配则回退 TOKEN_NAME，与旧行为一致）
+REM   现场实测：板卡站点后端要 cmes_heg-mb_info、前端要 cmes_heg_info，两者不同
+if not defined FRONT_TOKEN_NAME set "FRONT_TOKEN_NAME=%TOKEN_NAME%"
 
 REM ---------------- 占位符防呆 ----------------
 echo %PROD_URL%%SYS_URL%%FRONT_URL% | findstr /c:"xxx" >nul 2>&1
 if not errorlevel 1 echo [WARN] 配置区还有 xxx 占位符未填（PROD_URL / SYS_URL / FRONT_URL），相关接口会失败
-set "SETTING={\"stationName\":\"%STATION_NAME%\",\"prodUrl\":\"%PROD_URL%\",\"sysUrl\":\"%SYS_URL%\",\"userName\":\"%USER_NAME%\",\"passWord\":\"%PASS_WORD%\",\"tokenName\":\"%TOKEN_NAME%\",\"causeNo\":\"%CAUSE_NO%\",\"workCenter\":\"%WORK_CENTER%\",\"testFrameidNo\":\"%TEST_FRAME_ID%\",\"stationCode\":\"%STATION_CODE%\"}"
+set "SETTING={\"stationName\":\"%STATION_NAME%\",\"prodUrl\":\"%PROD_URL%\",\"sysUrl\":\"%SYS_URL%\",\"userName\":\"%USER_NAME%\",\"passWord\":\"%PASS_WORD%\",\"tokenName\":\"%TOKEN_NAME%\",\"frontTokenName\":\"%FRONT_TOKEN_NAME%\",\"causeNo\":\"%CAUSE_NO%\",\"workCenter\":\"%WORK_CENTER%\",\"testFrameidNo\":\"%TEST_FRAME_ID%\",\"stationCode\":\"%STATION_CODE%\"}"
 
 REM ============================================================
 REM  板卡组专用账号（与主账号分离）
@@ -83,7 +86,9 @@ if not defined PROD_URL2 set "PROD_URL2=%PROD_URL%"
 if not defined SYS_URL2 set "SYS_URL2=%SYS_URL%"
 if not defined FRONT_URL2 set "FRONT_URL2=%FRONT_URL%"
 if not defined PARENT_ID2 set "PARENT_ID2=%PARENT_ID%"
-set "SETTING2={\"stationName\":\"%STATION_NAME2%\",\"prodUrl\":\"%PROD_URL2%\",\"sysUrl\":\"%SYS_URL2%\",\"userName\":\"%USER_NAME2%\",\"passWord\":\"%PASS_WORD2%\",\"tokenName\":\"%TOKEN_NAME2%\",\"causeNo\":\"%CAUSE_NO2%\",\"workCenter\":\"%WORK_CENTER2%\",\"testFrameidNo\":\"%TEST_FRAME_ID2%\",\"stationCode\":\"%STATION_CODE2%\"}"
+REM 前端专用头名：未配则回退本组 TOKEN_NAME2（保持与旧配置兼容）
+if not defined FRONT_TOKEN_NAME2 set "FRONT_TOKEN_NAME2=%TOKEN_NAME2%"
+set "SETTING2={\"stationName\":\"%STATION_NAME2%\",\"prodUrl\":\"%PROD_URL2%\",\"sysUrl\":\"%SYS_URL2%\",\"userName\":\"%USER_NAME2%\",\"passWord\":\"%PASS_WORD2%\",\"tokenName\":\"%TOKEN_NAME2%\",\"frontTokenName\":\"%FRONT_TOKEN_NAME2%\",\"causeNo\":\"%CAUSE_NO2%\",\"workCenter\":\"%WORK_CENTER2%\",\"testFrameidNo\":\"%TEST_FRAME_ID2%\",\"stationCode\":\"%STATION_CODE2%\"}"
 
 set /a IDX+=1
 echo %IDX%,SelfTest:Session,内置自检（会话机制/响应分层/blocking）>"%RUNDIR%\%IDX%.tsv"

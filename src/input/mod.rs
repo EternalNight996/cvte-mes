@@ -107,6 +107,8 @@ cvte-mes.exe --api ItAPI --task ItAPI:MacQuery --args '<SN>' --setting '{\"base_
   · status=false 表示调用失败，content 里是可直接读的原因
   · 过站数量：不传 stationCodes = 该批次全部工站；传 = 只返回指定工站
   · 条码不存在时 SerialNoCache:GetInfoBySn 返回 content:null 且 status:true（属正常）
+  · 配置项 frontTokenName：前端 API 专用鉴权头名；留空则回退 tokenName
+      （实测存在后端与前端要不同头名的站点：板卡后端 cmes_heg-mb_info、前端 cmes_heg_info）
   · 批量验证：scripts\verify.bat（34 个用例，含上述全部 V1.1 新增接口与闭环验收）
 ================================================================
 "#)]

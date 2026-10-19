@@ -120,11 +120,23 @@ impl Session {
   }
   /// 按《对接标准》发起 GET 并解析：自动带鉴权头；Token 失效时重取后最多重试一次
   pub async fn get_json(&self, url: &str, query: &[(&str, &str)]) -> e_utils::AnyResult<Value> {
+    self.get_json_inner(url, query, false).await
+  }
+  /// 同上，但用**前端 API** 的鉴权头名（`Cfg::frontTokenName`，留空回退 `tokenName`）
+  pub async fn get_front_json(&self, url: &str, query: &[(&str, &str)]) -> e_utils::AnyResult<Value> {
+    self.get_json_inner(url, query, true).await
+  }
+  async fn get_json_inner(&self, url: &str, query: &[(&str, &str)], front: bool) -> e_utils::AnyResult<Value> {
     let client = super::client();
     let mut retried = false;
     loop {
       let token = self.token().await?;
-      let request = client.get(url).headers(auth_headers(&self.cfg, &token)?).query(query);
+      let headers = if front {
+        front_auth_headers(&self.cfg, &token)?
+      } else {
+        auth_headers(&self.cfg, &token)?
+      };
+      let request = client.get(url).headers(headers).query(query);
       let (status, body) = read_body(request).await?;
       match classify(status, &body) {
         Outcome::Ok(value) => return Ok(value),
@@ -180,9 +192,36 @@ pub async fn post_query_with_token(cfg: &Cfg, token: &str, url: &str, query: &[(
   finish(request).await
 }
 
-/// 鉴权请求头（标准字段 `x-auth-token`；`Cfg::tokenName` 非空时以现场配置为准）
+/// 已有 Token 的一次性 GET（**前端 API**）：鉴权头名用 `Cfg::frontTokenName`（留空回退 `tokenName`）
+///
+/// 现场实测存在后端与前端要不同头名的站点（如板卡：后端 `cmes_heg-mb_info`、前端 `cmes_heg_info`）。
+pub async fn get_front_json_with_token(
+  cfg: &Cfg,
+  token: &str,
+  url: &str,
+  query: &[(&str, &str)],
+) -> e_utils::AnyResult<Value> {
+  finish(super::client().get(url).headers(front_auth_headers(cfg, token)?).query(query)).await
+}
+
+/// 鉴权请求头（标准字段 `x-auth-token`；`Cfg::tokenName` 非空时以现场配置为准）—— **后端接口用**
 pub fn auth_headers(cfg: &Cfg, token: &str) -> e_utils::AnyResult<reqwest::header::HeaderMap> {
   Ok(reqwest::header::HeaderMap::from_iter([header(auth_name(cfg), token)?]))
+}
+
+/// 鉴权请求头 —— **前端 API 用**（`Cfg::frontTokenName` 非空时优先，否则回退 `tokenName`）
+pub fn front_auth_headers(cfg: &Cfg, token: &str) -> e_utils::AnyResult<reqwest::header::HeaderMap> {
+  Ok(reqwest::header::HeaderMap::from_iter([header(front_auth_name(cfg), token)?]))
+}
+
+/// 前端鉴权头名：`frontTokenName` 非空用它，否则回退 `tokenName`，都空则回退标准名
+fn front_auth_name(cfg: &Cfg) -> &str {
+  let front = cfg.frontTokenName.trim();
+  if front.is_empty() {
+    auth_name(cfg)
+  } else {
+    front
+  }
 }
 
 /// 鉴权头名：配置为空时回退对接标准名 `x-auth-token`
@@ -354,6 +393,41 @@ mod tests {
       ..Default::default()
     };
     assert_eq!(auth_name(&cfg), "cmes_test_info");
+  }
+
+  /// 前端头名优先级：frontTokenName 非空用它；留空回退 tokenName；都空回退标准名
+  ///
+  /// 现场依据：板卡站点后端要 `cmes_heg-mb_info`、前端要 `cmes_heg_info`（两轮实测交叉验证）。
+  #[test]
+  fn front_auth_name_prefers_front_token_name() {
+    // 都空 -> 标准名
+    let cfg = Cfg::default();
+    assert_eq!(front_auth_name(&cfg), "x-auth-token");
+
+    // 只配后端 -> 前端回退后端名（旧行为，保持兼容）
+    let cfg = Cfg {
+      tokenName: "cmes_heg-mb_info".into(),
+      ..Default::default()
+    };
+    assert_eq!(front_auth_name(&cfg), "cmes_heg-mb_info");
+    assert_eq!(auth_name(&cfg), "cmes_heg-mb_info");
+
+    // 两者分开配置 -> 各用各的
+    let cfg = Cfg {
+      tokenName: "cmes_heg-mb_info".into(),
+      frontTokenName: "cmes_heg_info".into(),
+      ..Default::default()
+    };
+    assert_eq!(auth_name(&cfg), "cmes_heg-mb_info", "后端头名不受前端配置影响");
+    assert_eq!(front_auth_name(&cfg), "cmes_heg_info");
+
+    // 只配前端 -> 后端仍走标准名/自身配置
+    let cfg = Cfg {
+      frontTokenName: "cmes_heg_info".into(),
+      ..Default::default()
+    };
+    assert_eq!(auth_name(&cfg), "x-auth-token");
+    assert_eq!(front_auth_name(&cfg), "cmes_heg_info");
   }
 
   /// 最小 HTTP mock：登录路径返回 token，业务路径按预设队列应答

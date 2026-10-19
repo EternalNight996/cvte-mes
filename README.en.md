@@ -152,6 +152,7 @@ test result: ok. 48 passed; 0 failed
 |------|----------|----------------|
 | Get token | `GET {host}/api/Account/CreateToken?Email=&Pwd=` (Pwd = 32-char lowercase MD5 digest) | `login::login` |
 | Send token | header `x-auth-token: {Token}` (header names are case-insensitive) | `session::auth_headers` (uses `Cfg::tokenName` when set, otherwise the standard name) |
+| Front-end-only header | Some sites require **different header names for backend and front-end** (measured on the board site: backend `cmes_heg-mb_info`, front-end `cmes_heg_info`) | `Cfg::frontTokenName` (used by front-end calls; falls back to `tokenName`, fully backward compatible) |
 | Token lifetime | 2 h by default; refresh before expiry; concurrent refreshes must be serialized | `session::Session` (refresh 5 min early, one login for concurrent callers) |
 | Token invalid | HTTP 401 or `unAuthorizedRequest === true` → drop the old token, re-login, **retry the original request at most once** | `Session::get_json`; a failed re-login stops the retry and must alert |
 | HTTP 500 | Server error or operator-friendly message: read `error.message` / `error.details` or the body text, **never parse `result`** | `session::classify` (hint is safe to show to operators) |

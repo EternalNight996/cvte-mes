@@ -77,8 +77,14 @@ mod r#type {
     pub userName: String,
     /// 密码
     pub passWord: String,
-    /// 令牌名
+    /// 令牌名（**后端接口** prod/sys 的鉴权头名，如 `cmes_heg-mb_info`）
     pub tokenName: String,
+    /// 前端 API 鉴权头名（`{域名}/frontApi/prod` 这类接口用）
+    ///
+    /// 现场实测：板卡站点后端要 `cmes_heg-mb_info`，前端要 `cmes_heg_info` —— 两者不同，
+    /// 故单独配置。**留空则回退 [`Cfg::tokenName`]**，与旧行为完全兼容。
+    #[serde(default)]
+    pub frontTokenName: String,
     /// 公司标识
     pub causeNo: String,
     /// 产线编号
