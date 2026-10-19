@@ -187,6 +187,51 @@ pub async fn api(op: Opts) -> e_utils::AnyResult<String> {
             .into())
           }
         }
+        "ScanHistory:GetStationPassQtyRaw" => {
+          // 【官方原样模式】完全按官方 curl 的形式发一次请求，并原样返回响应：
+          //   GET {front}/api/services/bas/ScanHistory/GetStationPassQty?moLotNo=..&stationCodes=B10%2CB20
+          //   Accept: application/json
+          //   x-auth-token: {Token}          <- 固定用标准头名，不取 cfg.tokenName / frontTokenName
+          // 不做库内的分层解析、不改写错误，便于与 curl 输出逐字节比对。
+          // --args[0]=前端 API 根，--args[1]=批次号，--args[2]=工站编码（可选，逗号分隔）
+          let front_url = op.args.first().ok_or("请把前端 API 根放在 --args[0]（如 http://xxx-pc-cmes.gz.cvte.cn/frontApi/prod）")?;
+          let lot = op.args.get(1).ok_or("请把批次号放在 --args[1]")?;
+          let codes = op.args.get(2).map(|s| s.trim()).filter(|s| !s.is_empty());
+          let token = cmes::login::login(&cfg).await?;
+
+          let base = format!(
+            "{}/api/services/bas/ScanHistory/GetStationPassQty",
+            front_url.trim().trim_end_matches('/')
+          );
+          // 与 curl --get --data-urlencode 相同的编码规则，拼出来给现场直接对照
+          let mut full_url = format!("{}?moLotNo={}", base, form_encode(lot.trim()));
+          if let Some(c) = codes {
+            full_url.push_str(&format!("&stationCodes={}", form_encode(c)));
+          }
+
+          let mut req = cmes::client()
+            .get(&base)
+            .header("Accept", "application/json")
+            .header("x-auth-token", &token)
+            .query(&[("moLotNo", lot.trim())]);
+          if let Some(c) = codes {
+            req = req.query(&[("stationCodes", c)]);
+          }
+          let resp = req
+            .send()
+            .await
+            .map_err(|e| format!("官方原样模式请求失败（网络层）：{e}"))?;
+          let status = resp.status().as_u16();
+          let raw = resp.text().await.unwrap_or_default();
+          Ok(serde_json::to_string_pretty(&serde_json::json!({
+            "mode": "official（x-auth-token + 原始响应，未做分层解析）",
+            "request_url": full_url,
+            "auth_header": "x-auth-token",
+            "accept": "application/json",
+            "http_status": status,
+            "raw_body": raw,
+          }))?)
+        }
         "SerialNoCache:GetInfoBySn" => {
           // --args[0]=前端 API 根，--args[1]=条码；--args[2]=isIncludeOrder（可选 true/false，缺省用服务端默认）；
           // --args[3]=componentBasisCode（可选，条码类型编码）
@@ -309,5 +354,37 @@ pub async fn api(op: Opts) -> e_utils::AnyResult<String> {
       }
     }
     OptsApi::None => Err("Api cannot eq None".into()),
+  }
+}
+
+/// 按 `application/x-www-form-urlencoded` 规则编码，与 `curl --get --data-urlencode` 一致：
+/// 字母/数字与 `-_.~` 原样保留，空格变成 `+`，其余（含逗号）编码成 `%XX`。
+///
+/// 用途：`ScanHistory:GetStationPassQtyRaw` 会把「官方拼法」的完整 URL 打印出来，
+/// 现场可直接与 curl 命令对照，确认两边发出的字节相同。
+fn form_encode(s: &str) -> String {
+  let mut out = String::with_capacity(s.len() * 3);
+  for b in s.bytes() {
+    match b {
+      b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => out.push(b as char),
+      b' ' => out.push('+'),
+      _ => out.push_str(&format!("%{b:02X}")),
+    }
+  }
+  out
+}
+
+#[cfg(test)]
+mod tests {
+  use super::form_encode;
+
+  #[test]
+  fn form_encode_matches_curl_data_urlencode() {
+    // curl --get --data-urlencode "stationCodes=B10,B20" 会编码成 B10%2CB20
+    assert_eq!(form_encode("B10,B20"), "B10%2CB20");
+    assert_eq!(form_encode("B10"), "B10");
+    assert_eq!(form_encode("HEG-YKCBU26090494"), "HEG-YKCBU26090494");
+    // 空格按 form 规则变 +
+    assert_eq!(form_encode("A B"), "A+B");
   }
 }
