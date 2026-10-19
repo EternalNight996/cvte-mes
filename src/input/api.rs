@@ -159,16 +159,15 @@ pub async fn api(op: Opts) -> e_utils::AnyResult<String> {
           Ok(serde_json::to_string_pretty(&rows)?)
         }
         "ScanHistory:VerifyStationPassQty" => {
-          // 闭环验收：--args[0]=前端 API 根，--args[1]=批次号，
-          // --args[2]=抽查工步数（可选，默认 3）：先查全部工步，再指定工步复查并与全量逐行对比
+          // 闭环验收：--args[0]=前端 API 根，--args[1]=批次号；
+          // --args[2]=工站编码（可选，逗号分隔，最多 50 个）
+          //   不传 -> 基线为该批次**全部工站**，并自动抽 1 个工站做闭环复查
+          //   传   -> 用指定工站做闭环复查（先查全量，再查指定，逐项比对）
           let front_url = op.args.first().ok_or("请把前端 API 根放在 --args[0]（如 http://xxx-pc-cmes.gz.cvte.cn/frontApi/prod）")?;
           let lot = op.args.get(1).ok_or("请把批次号放在 --args[1]")?;
-          let max_stations = match op.args.get(2).map(|s| s.trim()) {
-            None | Some("") => 3usize,
-            Some(v) => v.parse::<usize>().map_err(|_| format!("--args[2] 抽查工步数应为正整数，实际为 {v}"))?,
-          };
+          let codes = op.args.get(2).map(String::as_str);
           let token = cmes::login::login(&cfg).await?;
-          let report = cmes::bas::verify_station_pass_qty(&cfg, &token, front_url, lot, max_stations).await?;
+          let report = cmes::bas::verify_station_pass_qty(&cfg, &token, front_url, lot, codes).await?;
           let text = serde_json::to_string_pretty(&report)?;
           // 验收结论非 PASS 时必须让进程失败，否则渲染器只看 status 会把 FAIL 显示成 PASS
           if report.verdict == "PASS" {

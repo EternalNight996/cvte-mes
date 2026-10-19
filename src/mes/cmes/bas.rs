@@ -292,24 +292,27 @@ pub struct StationPassQtyVerify {
 
 /// `GetStationPassQty` 闭环验收：**全量查询 → 指定工步复查 → 两侧逐项对比**
 ///
-/// - `max_stations`：从全量结果中挑多少个工步做「指定工步」复查；传 0 按 3 处理
+/// - `station_codes`：要复查的工站编码（多个用英文逗号，如 `B10,B20`）
+///   - 传 `Some`：用这些工站做「指定工站」复查（不存在的编码会被点名）
+///   - 传 `None`：基线仍是**该批次全部工站**，并自动从中抽 1 个工站做闭环复查
 /// - 会发起 **两次** 业务请求（服务端按 `moLotNo` 限流 10 秒 30 次，勿在循环里高频调用）
 ///
 /// 覆盖的检查项：
 /// - 全量查询（不传 `stationCodes`）必须返回该批次的全部工步数据
-/// - 指定工步查询只返回被指定的工步
+/// - 指定工站查询只返回被指定的工步；用户指定的工站必须真实存在于该批次
 /// - 每一行（工步, 类型, 过站数）都与全量结果一致
-/// - 指定工步的行数 == 全量结果中对应工步的行数
-/// - 只复查部分工步时，结果行数必须收窄（证明确实在过滤）；复查全部时须等于全量
+/// - 指定工站的行数 == 全量结果中对应工站的行数
+/// - 只复查部分工站时，结果行数必须收窄（证明确实在过滤）
 pub async fn verify_station_pass_qty(
   cfg: &Cfg,
   token: &str,
   front_url: &str,
   mo_lot_no: &str,
-  max_stations: usize,
+  station_codes: Option<&str>,
 ) -> e_utils::AnyResult<StationPassQtyVerify> {
   let lot = check_lot(mo_lot_no)?.to_string();
-  let take = if max_stations == 0 { 3 } else { max_stations };
+  // 用户指定的工站（归一化；空白视同未指定）
+  let requested: Option<String> = check_station_codes(station_codes)?;
 
   // 第 1 次：**不传** stationCodes —— 验收「反馈该批次所有工站的数据」
   let all = station_pass_qty(cfg, token, front_url, &lot, None).await?;
@@ -452,7 +455,34 @@ pub async fn verify_station_pass_qty(
     ));
   }
 
-  let checked: Vec<String> = all_codes.iter().take(take).cloned().collect();
+  // 要复查的工站：用户指定优先；未指定则自动从全量里抽 1 个（保证闭环仍成立）
+  let checked: Vec<String> = match &requested {
+    Some(csv) => csv
+      .split(',')
+      .map(|s| s.trim().to_string())
+      .filter(|s| !s.is_empty())
+      .collect(),
+    None => all_codes.iter().take(1).cloned().collect(),
+  };
+
+  // 用户指定的工站必须真实存在于该批次（拼错/不存在要明确点名，而不是静默返回空）
+  if requested.is_some() {
+    let missing: Vec<String> = checked
+      .iter()
+      .filter(|c| !all_codes.iter().any(|x| x == *c))
+      .cloned()
+      .collect();
+    out.checks.push(chk(
+      "requested_codes_exist",
+      missing.is_empty(),
+      if missing.is_empty() {
+        format!("指定的工站均存在于该批次：{}", checked.join(","))
+      } else {
+        format!("指定的工站在该批次中不存在：{}（该批次实际工站：{}）", missing.join(","), all_codes.join(","))
+      },
+    ));
+  }
+
   let codes_arg = checked.join(",");
   out.checked_station_codes = checked.clone();
 
@@ -958,7 +988,7 @@ mod tests {
     let front = format!("http://{addr}/frontApi/prod");
 
     // 只复查 1 个工步（B10）：应 PASS，且结果从 3 行收窄到 2 行
-    let v = verify_station_pass_qty(&cfg, "tok", &front, "LOT1", 1).await.unwrap();
+    let v = verify_station_pass_qty(&cfg, "tok", &front, "LOT1", Some("B10")).await.unwrap();
     assert_eq!(v.verdict, "PASS", "checks: {:?}", v.checks);
     assert_eq!(v.all_rows, 3, "全量查询应返回 3 行（全部工站）");
     assert_eq!(v.all_station_codes, vec!["B10".to_string(), "B20".to_string()]);
@@ -967,7 +997,7 @@ mod tests {
     assert!(v.checks.iter().all(|c| c.pass), "checks: {:?}", v.checks);
 
     // 复查全部工步：应 PASS，且指定查询 == 全量
-    let v2 = verify_station_pass_qty(&cfg, "tok", &front, "LOT1", 9).await.unwrap();
+    let v2 = verify_station_pass_qty(&cfg, "tok", &front, "LOT1", Some("B10,B20")).await.unwrap();
     assert_eq!(v2.verdict, "PASS", "checks: {:?}", v2.checks);
     assert_eq!(v2.filtered_rows, 3);
   }
@@ -1003,7 +1033,7 @@ mod tests {
       passWord: "p".into(),
       ..Default::default()
     };
-    let v = verify_station_pass_qty(&cfg, "tok", &format!("http://{addr}/frontApi/prod"), "LOT1", 3)
+    let v = verify_station_pass_qty(&cfg, "tok", &format!("http://{addr}/frontApi/prod"), "LOT1", None)
       .await
       .unwrap();
     assert_eq!(v.verdict, "NO_DATA");
@@ -1057,7 +1087,7 @@ mod tests {
       ..Default::default()
     };
     // 只抽查 1 个工站（B10），若服务端真过滤应只剩 2 行；返回 3 行即说明过滤没生效
-    let v = verify_station_pass_qty(&cfg, "tok", &format!("http://{addr}/frontApi/prod"), "LOT1", 1)
+    let v = verify_station_pass_qty(&cfg, "tok", &format!("http://{addr}/frontApi/prod"), "LOT1", Some("B10"))
       .await
       .unwrap();
     assert_eq!(v.verdict, "FAIL", "服务端无视 stationCodes 时必须判 FAIL：{:?}", v.checks);
@@ -1111,7 +1141,7 @@ mod tests {
       passWord: "p".into(),
       ..Default::default()
     };
-    let v = verify_station_pass_qty(&cfg, "tok", &format!("http://{addr}/frontApi/prod"), "LOT1", 1)
+    let v = verify_station_pass_qty(&cfg, "tok", &format!("http://{addr}/frontApi/prod"), "LOT1", Some("B10"))
       .await
       .unwrap();
     assert_eq!(v.verdict, "FAIL", "排序/口径违规时必须判 FAIL：{:?}", v.checks);

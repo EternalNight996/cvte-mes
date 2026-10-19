@@ -480,7 +480,7 @@ async fn run_session_checks(mock: &Mock) -> Vec<Check> {
   // 11b. GetStationPassQty 闭环验收：全部工站 -> 指定工站 复查 -> 两侧逐项对比
   //      mock 的 MOCK-MULTI 批次有两个命名工步（B10/B20），抽查 1 个必须收窄
   let cfg2 = cfg.clone();
-  match crate::mes::cmes::bas::verify_station_pass_qty(&cfg2, "t", &mock.base, "MOCK-MULTI", 1).await {
+  match crate::mes::cmes::bas::verify_station_pass_qty(&cfg2, "t", &mock.base, "MOCK-MULTI", Some("B10")).await {
     Ok(v) if v.verdict == "PASS" => {
       let ok_shape = v.all_rows == 3
         && v.all_station_codes == vec!["B10".to_string(), "B20".to_string()]

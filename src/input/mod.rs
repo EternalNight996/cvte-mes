@@ -80,11 +80,15 @@ cvte-mes.exe --api CMES --task ScanHistory:GetStationPassQty --args '<FRONT>' '<
 cvte-mes.exe --api CMES --task ScanHistory:GetStationPassQty --args '<FRONT>' '<批次号>' 'B10' --setting '<CMES setting>'
 cvte-mes.exe --api CMES --task ScanHistory:GetStationPassQty --args '<FRONT>' '<批次号>' 'B10,B20' --setting '<CMES setting>'
 
-# ③ 闭环验收：先查全部工站，再指定工站复查，逐项比对（--args[2]=抽查几个工站，默认 3）
-#    检查项：只返回指定工站 / 过站数与全量一致 / 行数一致 / 抽查须收窄 /
-#            moLotNo 与请求一致 / moQty 一致 / sortNo 升序 / 同工站整机在部件前
+# ③ 闭环验收：先查全量工站，再指定工站复查，逐项比对
+#    --args[2] 同样是工站编码（可选）：
+#      不传 -> 基线为该批次【全部工站】，并自动抽 1 个工站做闭环复查
+#      传   -> 用指定工站做闭环复查（写成 B10 或 B10,B20）
+#    检查项：只返回指定工站 / 指定工站须存在 / 过站数与全量一致 / 行数一致 /
+#            抽查须收窄 / moLotNo 与请求一致 / moQty 一致 / sortNo 升序 / 同工站整机在部件前
 #    verdict=PASS 才算通过；NO_DATA 表示该批次无过站数据；非 PASS 时进程退出码非 0
-cvte-mes.exe --api CMES --task ScanHistory:VerifyStationPassQty --args '<FRONT>' '<批次号>' '1' --setting '<CMES setting>'
+cvte-mes.exe --api CMES --task ScanHistory:VerifyStationPassQty --args '<FRONT>' '<批次号>' --setting '<CMES setting>'
+cvte-mes.exe --api CMES --task ScanHistory:VerifyStationPassQty --args '<FRONT>' '<批次号>' 'B10,B20' --setting '<CMES setting>'
 
 ----- CMES · 条码详细信息（V1.1 第 12 章）-----
 # 默认（服务端默认 isIncludeOrder=true）

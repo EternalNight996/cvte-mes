@@ -136,7 +136,7 @@ echo %IDX%,ScanHistory:GetStationPassQty,批次查各工步过站数（V1.1-11 �
 
 set /a IDX+=1
 echo %IDX%,ScanHistory:VerifyStationPassQty,过站数闭环验收（全部工站+指定工站对比）>"%RUNDIR%\%IDX%.tsv"
-"%EXE%" --api CMES --task ScanHistory:VerifyStationPassQty --args "%FRONT_URL%" "%LOT%" "1" --setting "%SETTING%" > "%RUNDIR%\%IDX%.txt" 2>&1
+"%EXE%" --api CMES --task ScanHistory:VerifyStationPassQty --args "%FRONT_URL%" "%LOT%" --setting "%SETTING%" > "%RUNDIR%\%IDX%.txt" 2>&1
 
 set /a IDX+=1
 echo %IDX%,SerialNoCache:GetInfoBySn,条码详细信息（V1.1-12 content=null 即条码不存在 属正常）>"%RUNDIR%\%IDX%.tsv"
@@ -190,7 +190,7 @@ echo %IDX%,ScanHistory:GetStationPassQty(板卡),板卡批次查各工步过站�
 
 set /a IDX+=1
 echo %IDX%,ScanHistory:VerifyStationPassQty(板卡),板卡过站数闭环验收（全部+指定工站对比）>"%RUNDIR%\%IDX%.tsv"
-"%EXE%" --api CMES --task ScanHistory:VerifyStationPassQty --args "%FRONT_URL2%" "%LOT2%" "1" --setting "%SETTING2%" > "%RUNDIR%\%IDX%.txt" 2>&1
+"%EXE%" --api CMES --task ScanHistory:VerifyStationPassQty --args "%FRONT_URL2%" "%LOT2%" --setting "%SETTING2%" > "%RUNDIR%\%IDX%.txt" 2>&1
 
 set /a IDX+=1
 echo %IDX%,SerialNoCache:GetInfoBySn(板卡),板卡条码详细信息（null 即条码不存在 属正常）>"%RUNDIR%\%IDX%.tsv"
