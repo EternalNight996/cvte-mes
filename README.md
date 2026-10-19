@@ -115,7 +115,7 @@ test result: ok. 48 passed; 0 failed
 | `cmes::pack` | `Pack:GetSnPackFinishQty` | **按批次获取 SN 包装完工数**（整机/部件分行） |
 | `cmes::bas` | `FeedSheetOrder:GetFeedSheetByContainerName` | **V1.1 第 10 章**：扫描条码 → 所属批次投料单物料行（应发数 > 0，按物料编码倒序） |
 | `cmes::bas` | `ScanHistory:GetStationPassQty` | **V1.1 第 11 章**：批次 → 各工步过站数（整机/部件分行，按条码去重；`moLotNo` ≤ 100 位、`stationCodes` ≤ 50 个前置校验）；不传 `stationCodes` 返回该批次**全部工步** |
-| `cmes::bas` | `ScanHistory:VerifyStationPassQty` | **过站数闭环验收**：先查全部工步 → 再指定工站复查 → 逐项对比（只返回指定工站 / 过站数与全量一致 / 行数一致 / 抽查时须收窄）；`verdict` 非 PASS 时进程失败，验证表格显示 FAIL |
+| `cmes::bas` | `ScanHistory:VerifyStationPassQty` | **过站数闭环验收**：先查全部工步 → 再指定工站复查 → 逐项对比（只返回指定工站 / 过站数与全量一致 / 行数一致 / 抽查时须收窄），并校验全量结果自身口径（`moLotNo` 与请求一致、`moQty` 一致、`sortNo` 升序、同工步整机在部件前）；`verdict` 非 PASS 时进程失败，验证表格显示 FAIL |
 | `cmes::bas` | `SerialNoCache:GetInfoBySn` | **V1.1 第 12 章**：条码详细信息；**条码不存在时 `result` 为 `null` 且不算异常**（库返回 `Option::None`） |
 | `cmes` | `CMES:MoLotNo` | 高层封装：SN → 批次号（登录+校验链式） |
 | `cmes` | `CMES:SessionToken` | 返回 Session 缓存的 Token（验证会话层机制） |

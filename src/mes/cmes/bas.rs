@@ -355,6 +355,84 @@ pub async fn verify_station_pass_qty(
     ),
   ));
 
+  // ---- 以下按标准 11.1 / 11.4 校验「全量结果」自身的口径（一次响应即可判定）----
+
+  // D1：每行的 moLotNo 必须就是请求的批次
+  let wrong_lot: Vec<String> = all
+    .iter()
+    .filter(|r| r.moLotNo.trim() != lot)
+    .map(|r| r.moLotNo.clone())
+    .collect();
+  out.checks.push(chk(
+    "lot_matches_requested",
+    wrong_lot.is_empty(),
+    if wrong_lot.is_empty() {
+      format!("全部 {} 行的 moLotNo 均为 {}", all.len(), lot)
+    } else {
+      format!("出现与请求批次 {} 不符的行：{}", lot, wrong_lot.join(","))
+    },
+  ));
+
+  // D2：moQty 是「批次数量（计划数）」，每行都应携带且一致
+  let mut mo_qty_values: Vec<i64> = all.iter().map(|r| r.moQty).collect();
+  mo_qty_values.sort_unstable();
+  mo_qty_values.dedup();
+  out.checks.push(chk(
+    "mo_qty_consistent",
+    mo_qty_values.len() == 1 && mo_qty_values[0] > 0,
+    if mo_qty_values.len() == 1 {
+      format!("每行 moQty 均为 {}（批次计划数）", mo_qty_values[0])
+    } else {
+      format!("moQty 不一致或非正值：{mo_qty_values:?}")
+    },
+  ));
+
+  // D3：结果按 sortNo 升序（文档 11.4「结果按此升序」）
+  let bad_sort: Vec<String> = all
+    .windows(2)
+    .filter(|w| w[0].sortNo > w[1].sortNo)
+    .map(|w| format!("{}->{}", w[0].sortNo, w[1].sortNo))
+    .collect();
+  out.checks.push(chk(
+    "sorted_by_sort_no",
+    bad_sort.is_empty(),
+    if bad_sort.is_empty() {
+      "结果按 sortNo 升序".to_string()
+    } else {
+      format!("出现逆序（前>后）：{}", bad_sort.join(","))
+    },
+  ));
+
+  // D4：同一工步内「整机在前、部件在后」（文档 11.4）
+  //     以连续同 stationCode 的区段为单位；区段内一旦出现「部件」后又出现「整机」即违反
+  let mut order_violations: Vec<String> = Vec::new();
+  let mut seen_part = false;
+  for i in 0..all.len() {
+    let cur_part = all[i].r#type == "部件";
+    let prev_same_station = i > 0
+      && all[i - 1].stationCode.as_deref().map(str::trim) == all[i].stationCode.as_deref().map(str::trim);
+    if !prev_same_station {
+      seen_part = false; // 进入新工步区段，重置
+    }
+    if cur_part {
+      seen_part = true;
+    } else if seen_part && all[i].r#type == "整机" {
+      order_violations.push(format!(
+        "{}：部件之后又出现整机",
+        all[i].stationCode.as_deref().unwrap_or("<null>")
+      ));
+    }
+  }
+  out.checks.push(chk(
+    "machine_before_part",
+    order_violations.is_empty(),
+    if order_violations.is_empty() {
+      "同一工步内整机行均在部件行之前".to_string()
+    } else {
+      order_violations.join("；")
+    },
+  ));
+
   // 行存在但全部没有工步编码：无法按工步复查
   if all_codes.is_empty() {
     out.checks.push(chk(
@@ -987,5 +1065,58 @@ mod tests {
     assert!(failed.contains(&"only_requested_stations"), "应检出越界工站：{failed:?}");
     assert!(failed.contains(&"row_count_matches"), "应检出数量不符：{failed:?}");
     assert!(failed.contains(&"filter_reduces"), "应检出未收窄：{failed:?}");
+  }
+
+  /// 口径判别力：sortNo 逆序 / 同工步「部件」排在「整机」之前，都必须判 FAIL（标准 11.1 / 11.4）
+  #[tokio::test]
+  async fn verify_station_pass_qty_detects_bad_order() {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    // 故意违规：sortNo 20 在前、10 在后；同一工步 B10 先「部件」后「整机」
+    let rows = r#"[
+      {"moLotNo":"LOT1","stationId":"s1","stationCode":"B10","stationName":"组装","sortNo":20,"moQty":200,"type":"部件","passQty":40},
+      {"moLotNo":"LOT1","stationId":"s1","stationCode":"B10","stationName":"组装","sortNo":10,"moQty":200,"type":"整机","passQty":120}
+    ]"#;
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+      loop {
+        let Ok((mut sock, _)) = listener.accept().await else { break };
+        let mut buf = vec![0u8; 8192];
+        let n = sock.read(&mut buf).await.unwrap_or(0);
+        let url = String::from_utf8_lossy(&buf[..n])
+          .lines()
+          .next()
+          .unwrap_or("")
+          .split_whitespace()
+          .nth(1)
+          .unwrap_or("")
+          .to_string();
+        let body = if url.contains("/api/Account/CreateToken") {
+          r#"{"result":"tok","success":true}"#.to_string()
+        } else {
+          format!(r#"{{"result":{rows},"success":true}}"#)
+        };
+        let resp = format!(
+          "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+          body.len()
+        );
+        let _ = sock.write_all(resp.as_bytes()).await;
+        let _ = sock.shutdown().await;
+      }
+    });
+    let cfg = Cfg {
+      sysUrl: format!("http://{addr}"),
+      userName: "u@example.com".into(),
+      passWord: "p".into(),
+      ..Default::default()
+    };
+    let v = verify_station_pass_qty(&cfg, "tok", &format!("http://{addr}/frontApi/prod"), "LOT1", 1)
+      .await
+      .unwrap();
+    assert_eq!(v.verdict, "FAIL", "排序/口径违规时必须判 FAIL：{:?}", v.checks);
+    let failed: Vec<&str> = v.checks.iter().filter(|c| !c.pass).map(|c| c.name.as_str()).collect();
+    assert!(failed.contains(&"sorted_by_sort_no"), "应检出 sortNo 逆序：{failed:?}");
+    assert!(failed.contains(&"machine_before_part"), "应检出部件排在整机之前：{failed:?}");
   }
 }
