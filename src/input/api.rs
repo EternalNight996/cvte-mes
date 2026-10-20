@@ -223,12 +223,36 @@ pub async fn api(op: Opts) -> e_utils::AnyResult<String> {
             .map_err(|e| format!("官方原样模式请求失败（网络层）：{e}"))?;
           let status = resp.status().as_u16();
           let raw = resp.text().await.unwrap_or_default();
+          // 顺带对原始响应做一个「不改写」的结构判定，便于脚本/人一眼看出结果形态
+          let parsed: Option<serde_json::Value> = serde_json::from_str(&raw).ok();
+          let result_kind = match parsed.as_ref().and_then(|v| v.get("result")) {
+            Some(serde_json::Value::Array(a)) => format!("array(len={})", a.len()),
+            Some(serde_json::Value::Null) => "null".to_string(),
+            Some(_) => "not_array".to_string(),
+            None => "absent".to_string(),
+          };
+          let success = parsed.as_ref().and_then(|v| v.get("success")).and_then(|v| v.as_bool());
+
+          // 拼一条可直接复制执行的 curl（单行版）。内部测试脚本，Token 按现场要求明文给出。
+          let mut curl = format!("curl --get \"{}\" --data-urlencode \"moLotNo={}\"", base, lot.trim());
+          if let Some(c) = codes {
+            curl.push_str(&format!(" --data-urlencode \"stationCodes={}\"", c));
+          }
+          curl.push_str(&format!(
+            " --header \"Accept: application/json\" --header \"x-auth-token: {token}\""
+          ));
+
           Ok(serde_json::to_string_pretty(&serde_json::json!({
             "mode": "official（x-auth-token + 原始响应，未做分层解析）",
+            "note": "Token 由本程序内部登录取到，无需手工提供；内部测试脚本，明文显示便于直接复用",
             "request_url": full_url,
             "auth_header": "x-auth-token",
             "accept": "application/json",
             "http_status": status,
+            "success": success,
+            "result_kind": result_kind,
+            "token": token,
+            "curl_command": curl,
             "raw_body": raw,
           }))?)
         }

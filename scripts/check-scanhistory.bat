@@ -13,6 +13,7 @@ REM    check-scanhistory.bat <批次号>             指定批次，查全部工
 REM    check-scanhistory.bat <批次号> B10,B20     指定批次与工站码
 REM
 REM  A 官方原样：固定 x-auth-token 头、不解析、原样输出原始响应（与官方 curl 对齐）
+REM              Token 由本程序内部登录取到（无需手工提供），并同时给出一条可直接执行的 curl
 REM  B 优化版  ：用配置的 frontTokenName、走分层解析（生产验证脚本用的就是这条）
 REM
 REM  结果：根目录 scanhistory.result.txt（便于直接打开）
@@ -65,7 +66,8 @@ echo 归档目录=%LOGDIR% >> "%OUT%"
 echo.
 echo ============================================================
 echo  A. 官方原样：x-auth-token + 原始响应（未解析）
-echo     可直接与官方 curl 的返回逐字节对比
+echo     Token 由脚本内部自动登录取到，无需手工提供；
+echo     输出里的 token / curl_command 为明文，可直接复制执行。
 echo ============================================================
 call :run A_官方原样 ScanHistory:GetStationPassQtyRaw
 
@@ -101,4 +103,19 @@ copy /y "%TMP%" "%LOGDIR%\%TITLE%.txt" >nul 2>&1
 echo. >> "%OUT%"
 echo ==== %TITLE% ==== >> "%OUT%"
 type "%TMP%" >> "%OUT%"
+
+REM 对官方原样段做自动判定（依据返回里的 result_kind）
+if /i "%TASK%"=="ScanHistory:GetStationPassQtyRaw" (
+  findstr /c:"array(len=0)" "%TMP%" >nul 2>&1
+  if not errorlevel 1 (
+    echo [判定] 官方原样：HTTP 成功但 result 为空数组 -^> 服务端该批次无过站数据
+  ) else (
+    findstr /c:"result_kind" "%TMP%" >nul 2>&1
+    if not errorlevel 1 (
+      echo [判定] 官方原样：result 非空 -^> 请看上面的 raw_body
+    ) else (
+      echo [判定] 官方原样：请求本身失败 -^> 看上面的报错
+    )
+  )
+)
 goto :eof
